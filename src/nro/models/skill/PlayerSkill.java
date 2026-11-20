@@ -62,6 +62,9 @@ public class PlayerSkill {
     public long lastTimePrepareTuSat;
     public long lastTimePrepareLaze;
 
+    public nro.models.mob.Mob targetMob;
+    public nro.models.player.Player targetPlayer;
+
     public byte getIndexSkillSelect() {
         switch (skillSelect.template.id) {
             case Skill.DRAGON:
@@ -103,6 +106,8 @@ public class PlayerSkill {
             }
             this.skills.clear();
         }
+        this.targetMob = null;
+        this.targetPlayer = null;
         this.player = null;
         this.skillSelect = null;
         this.skills = null;

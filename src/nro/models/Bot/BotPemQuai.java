@@ -63,8 +63,8 @@ public class BotPemQuai {
             return;
         }
         Attack();
-        if ((!this.bot.worldBot || !"NRSD".equals(this.bot.activity)) && !this.bot.stayMap) {
-            chanGeMap(); // đang đánh NRSD / Hirudegarn / Kilis / Thánh địa thì ở lại map
+        if ((!this.bot.worldBot || "Luyện tập".equals(this.bot.activity)) && !this.bot.stayMap && this.bot.questMap < 0) {
+            chanGeMap(); // chỉ đổi map ngẫu nhiên khi đang luyện tập, không đổi khi làm nhiệm vụ / úp SKH / hoạt động khác
         }
         if (this.bot.accountBot || this.bot.zone == null || !nro.models.map.service.MapService.gI().isMapBlackBallWar(this.bot.zone.map.mapId)) {
             NhatItem(); // bot giả lập không nhặt trong NRSD; tài khoản bot nhặt cả ngọc rồng sao đen như người chơi
@@ -219,6 +219,9 @@ public class BotPemQuai {
     }
 
     public void Attack() {
+        if (this.bot.playerSkill != null && (this.bot.playerSkill.prepareLaze || this.bot.playerSkill.prepareQCKK || this.bot.playerSkill.prepareTuSat)) {
+            return;
+        }
         this.GetMobAttack();
         if (this.mAttack == null || this.mAttack.isDie()) {
             return;
@@ -267,6 +270,11 @@ public class BotPemQuai {
             }
             SkillService.gI().useSkillAttack(bot, null, mAttack); // mục tiêu chỉ là quái (trước đây truyền chính bot làm mục tiêu người chơi nên bot tự đánh mình, mất HP)
             SkillService.gI().useSkillAlone(bot);
+            return;
+        }
+
+        if (skillId == Skill.MAKANKOSAPPO || skillId == Skill.QUA_CAU_KENH_KHI) {
+            SkillService.gI().useSkillAttack(bot, null, mAttack);
             return;
         }
 

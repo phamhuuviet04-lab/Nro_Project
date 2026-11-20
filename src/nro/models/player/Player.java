@@ -530,6 +530,52 @@ public class Player implements Runnable {
                     if (effectSkill != null) {
                         effectSkill.update();
                     }
+                    if (playerSkill != null && !this.isDie()) {
+                        long now = System.currentTimeMillis();
+                        if (playerSkill.prepareLaze && now - playerSkill.lastTimePrepareLaze >= 3000) {
+                            Skill skill = playerSkill.getSkillbyId(Skill.MAKANKOSAPPO);
+                            if (skill != null && this.zone != null) {
+                                playerSkill.skillSelect = skill;
+                                nro.models.mob.Mob targetMob = playerSkill.targetMob;
+                                Player targetPlayer = playerSkill.targetPlayer;
+                                if (targetMob != null && targetMob.isDie()) {
+                                    targetMob = null;
+                                }
+                                if (targetMob == null && targetPlayer == null) {
+                                    targetMob = this.zone.getRandomMobInMap();
+                                }
+                                nro.models.services.SkillService.gI().useSkillAttack(this, targetPlayer, targetMob);
+                            } else {
+                                playerSkill.prepareLaze = false;
+                            }
+                        }
+                        if (playerSkill.prepareQCKK && now - playerSkill.lastTimePrepareQCKK >= 4000) {
+                            Skill skill = playerSkill.getSkillbyId(Skill.QUA_CAU_KENH_KHI);
+                            if (skill != null && this.zone != null) {
+                                playerSkill.skillSelect = skill;
+                                nro.models.mob.Mob targetMob = playerSkill.targetMob;
+                                Player targetPlayer = playerSkill.targetPlayer;
+                                if (targetMob != null && targetMob.isDie()) {
+                                    targetMob = null;
+                                }
+                                if (targetMob == null && targetPlayer == null) {
+                                    targetMob = this.zone.getRandomMobInMap();
+                                }
+                                nro.models.services.SkillService.gI().useSkillAttack(this, targetPlayer, targetMob);
+                            } else {
+                                playerSkill.prepareQCKK = false;
+                            }
+                        }
+                        if (playerSkill.prepareTuSat && now - playerSkill.lastTimePrepareTuSat >= 2000) {
+                            Skill skill = playerSkill.getSkillbyId(Skill.TU_SAT);
+                            if (skill != null && this.zone != null) {
+                                playerSkill.skillSelect = skill;
+                                nro.models.services.SkillService.gI().useSkillAlone(this);
+                            } else {
+                                playerSkill.prepareTuSat = false;
+                            }
+                        }
+                    }
                     if (mobMe != null) {
                         mobMe.update();
                     }

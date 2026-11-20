@@ -249,6 +249,161 @@ parameterizedCommands.put("upp", (player, text) -> {
                 Service.gI().sendThongBao(player, "Lỗi cú pháp! Dùng: i <itemId> <số lượng> [optionId:value]");
             }
         });
+
+        parameterizedCommands.put("setdo", (player, text) -> {
+            try {
+                String[] parts = text.trim().split("\\s+");
+                int planet = player.gender;
+                String tier = "tl";
+                String stat = "sd";
+
+                if (parts.length == 1) {
+                    Service.gI().sendThongBaoOK(player, "|7|CÚ PHÁP LỆNH NHẬN SET ĐỒ 7 SAO:\n"
+                            + "|1|setdo [hành_tinh] <loại_đồ> <dòng_sao>\n"
+                            + "|2|- Hành tinh: td, nm, xd (hoặc bỏ trống = theo phái)\n"
+                            + "- Loại đồ:\n"
+                            + "  • tl : Đồ Thần Linh\n"
+                            + "  • shop : Đồ VIP Shop (Calic / Zealot / Lưỡng Long)\n"
+                            + "  • cui : Đồ Cùi nhất Shop (Cấp 1)\n"
+                            + "  • skh1 : SKH 1 (Songoku / Picolo / Kakarot)\n"
+                            + "  • skh2 : SKH 2 (Thiên Xin Hăng / Ốc Tiêu / Cadic)\n"
+                            + "  • skh3 : SKH 3 (Kirin / Pikkoro / Nappa)\n"
+                            + "- Dòng sao: sd (Sức đánh), hp (Máu), tn (Tiềm năng)\n\n"
+                            + "|4|Ví dụ:\n"
+                            + "• setdo tl sd : Set Thần Linh SĐ 7★\n"
+                            + "• setdo cui sd : Set Cùi nhất shop SĐ 7★\n"
+                            + "• setdo skh1 sd : Set SKH 1 SĐ 7★\n"
+                            + "• setdo shop hp : Set VIP Shop HP 7★");
+                    return;
+                } else if (parts.length == 2) {
+                    stat = parts[1].toLowerCase();
+                } else if (parts.length == 3) {
+                    String p1 = parts[1].toLowerCase();
+                    String p2 = parts[2].toLowerCase();
+                    if (p1.equals("td") || p1.equals("nm") || p1.equals("xd") || p1.equals("0") || p1.equals("1") || p1.equals("2")) {
+                        planet = p1.equals("nm") || p1.equals("1") ? 1 : (p1.equals("xd") || p1.equals("2") ? 2 : 0);
+                        tier = p2;
+                    } else {
+                        tier = p1;
+                        stat = p2;
+                    }
+                } else if (parts.length >= 4) {
+                    String p1 = parts[1].toLowerCase();
+                    planet = p1.equals("nm") || p1.equals("1") ? 1 : (p1.equals("xd") || p1.equals("2") ? 2 : 0);
+                    tier = parts[2].toLowerCase();
+                    stat = parts[3].toLowerCase();
+                }
+
+                if (planet < 0 || planet > 2) planet = 0;
+
+                int[] itemIds;
+                String tierName;
+                int skhId = -1;
+
+                if ("shop".equals(tier) || "vip".equals(tier)) {
+                    tierName = "VIP Shop";
+                    int[][] SET_SHOP = {
+                        {233, 245, 257, 269, 281}, // Trái Đất: Calic
+                        {237, 249, 261, 273, 281}, // Namếc: Zealot
+                        {241, 253, 265, 277, 281}  // Xayda: Lưỡng Long
+                    };
+                    itemIds = SET_SHOP[planet];
+                } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
+                    tierName = "Shop Cùi nhất (Cấp 1)";
+                    int[][] SET_CUI = {
+                        {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
+                        {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
+                        {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
+                    };
+                    itemIds = SET_CUI[planet];
+                } else if (tier.startsWith("skh")) {
+                    tierName = "Kích Hoạt (SKH)";
+                    int[][] SET_THAN = {
+                        {555, 556, 562, 563, 561},
+                        {557, 558, 564, 565, 561},
+                        {559, 560, 566, 567, 561}
+                    };
+                    itemIds = SET_THAN[planet];
+                    int[][] SKH_IDS = {
+                        {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
+                        {130, 131, 132}, // Namếc: Picolo (130), Ốc Tiêu (131), Pikkoro Daimao (132)
+                        {133, 134, 135}  // Xayda: Kakarot (133), Cadic (134), Nappa (135)
+                    };
+                    String[][] SKH_NAMES = {
+                        {"Songoku", "Thiên Xin Hăng", "Kirin"},
+                        {"Picolo", "Ốc Tiêu", "Pikkoro Daimao"},
+                        {"Kakarot", "Cadic", "Nappa"}
+                    };
+                    int skhIdx = 0;
+                    if (tier.contains("2") || tier.contains("txh") || tier.contains("octieu") || tier.contains("cadic")) {
+                        skhIdx = 1;
+                    } else if (tier.contains("3") || tier.contains("kirin") || tier.contains("pikkoro") || tier.contains("nappa")) {
+                        skhIdx = 2;
+                    }
+                    skhId = SKH_IDS[planet][skhIdx];
+                    tierName = "SKH " + SKH_NAMES[planet][skhIdx];
+                } else {
+                    tierName = "Thần Linh";
+                    int[][] SET_THAN = {
+                        {555, 556, 562, 563, 561}, // Trái Đất
+                        {557, 558, 564, 565, 561}, // Namếc
+                        {559, 560, 566, 567, 561}  // Xayda
+                    };
+                    itemIds = SET_THAN[planet];
+                }
+
+                int statOptId = 50;
+                int statParam = 21;
+                String statName = "Sức đánh +21%";
+                if ("hp".equals(stat)) {
+                    statOptId = 77;
+                    statParam = 35;
+                    statName = "HP +35%";
+                } else if ("tn".equals(stat) || "tiemnang".equals(stat)) {
+                    statOptId = 101;
+                    statParam = 35;
+                    statName = "Tiềm năng +35%";
+                }
+
+                int emptySlots = 0;
+                for (Item slot : player.inventory.itemsBag) {
+                    if (!slot.isNotNullItem()) {
+                        emptySlots++;
+                    }
+                }
+                if (emptySlots < itemIds.length) {
+                    Service.gI().sendThongBao(player, "Hành trang cần ít nhất " + itemIds.length + " ô trống (hiện còn " + emptySlots + ")");
+                    return;
+                }
+
+                for (int itemId : itemIds) {
+                    Item it = ItemService.gI().createNewItem((short) itemId, 1);
+                    nro.models.services.RewardService.gI().initChiSoItem(it);
+                    if (it.itemOptions.isEmpty()) {
+                        List<Item.ItemOption> shopOps = ItemService.gI().getListOptionItemShop((short) itemId);
+                        if (shopOps != null && !shopOps.isEmpty()) {
+                            it.itemOptions.addAll(shopOps);
+                        }
+                    }
+                    if (skhId > 0) {
+                        it.itemOptions.add(new Item.ItemOption(skhId, 1));
+                        for (int subId : ItemService.gI().getOptionIdsBySKH(skhId)) {
+                            it.itemOptions.add(new Item.ItemOption(subId, 1));
+                        }
+                    }
+                    it.itemOptions.add(new Item.ItemOption(107, 7));
+                    it.itemOptions.add(new Item.ItemOption(102, 7));
+                    it.itemOptions.add(new Item.ItemOption(statOptId, statParam));
+                    InventoryService.gI().addItemBag(player, it);
+                }
+
+                InventoryService.gI().sendItemBags(player);
+                Service.gI().sendThongBao(player, "Đã nhận Set " + tierName + " 7 sao (" + statName + ") thành công!");
+
+            } catch (Exception e) {
+                Service.gI().sendThongBao(player, "Lỗi cú pháp: " + e.getMessage());
+            }
+        });
     }
 
     public void chat(Player player, String text) {

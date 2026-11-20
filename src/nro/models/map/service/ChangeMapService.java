@@ -902,7 +902,7 @@ public class ChangeMapService {
         if (zoneJoin.map.mapId == -1 || zoneJoin.map.mapId == -1) {
             return null;
         }
-        if (player.isPet || player.isBoss || player.getSession() != null && player.isAdmin()) {
+        if (player.isBot || player.isPet || player.isBoss || player.getSession() != null && player.isAdmin()) {
             return zoneJoin;
         }
 

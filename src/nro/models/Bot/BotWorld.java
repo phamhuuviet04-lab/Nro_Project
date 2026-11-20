@@ -320,10 +320,10 @@ public final class BotWorld {
     }
 
     // ------------------------------------------------------------------ giao việc cho 1 bot (panel > Bot > Điều khiển)
-    public static final String[][] JOBS = {{"train", "Luyện tập"}, {"quest", "Làm nhiệm vụ"}, {"boss", "Săn boss"}, {"broly", "Săn đệ (Broly)"},
+    public static final String[][] JOBS = {{"train", "Luyện tập"}, {"quest", "Làm nhiệm vụ"}, {"upde", "Úp đệ tử"}, {"boss", "Săn boss"}, {"broly", "Săn đệ (Broly)"},
         {"nrsd", "Ngọc Rồng Sao Đen (lúc đang mở)"}, {"skh", "Úp set kích hoạt / doanh trại"}, {"pk", "PK người chơi"},
         {"upvang", "Úp vàng (Ngục tù may mắn)"}, {"special", "Giải Siêu hạng / ĐHVT lần 23"}, {"endgame", "Hirudegarn, hút Kilis, up bông tai"}};
-    public static final String[][] ONCE = {{"shoptop", "Mua & mở hộp đua top"}, {"openbox", "Mở hết hộp quà trong hành trang"},
+    public static final String[][] ONCE = {{"pet", "Nhận đệ tử ngay"}, {"shoptop", "Mua & mở hộp đua top"}, {"openbox", "Mở hết hộp quà trong hành trang"},
         {"gear", "Sắm / mặc đồ tốt nhất"}, {"chat", "Chat thế giới 1 câu"}};
     /** bot id -> {việc, hết hạn (ms, 0 = đến khi đổi)}. Chỉ giữ trong bộ nhớ: khởi động lại server thì bot về tự do. */
     private static final Map<Long, Object[]> JOB = new java.util.concurrent.ConcurrentHashMap<>();
@@ -370,6 +370,10 @@ public final class BotWorld {
         if (ns != null) {
             ns[0] = 0; // đổi việc ngay lượt kế
         }
+        Bot b = find(id);
+        if (b != null) {
+            switchActivity(b);
+        }
     }
 
     /** Việc làm ngay 1 lần (chạy ở luồng bot, lượt socialTick kế). */
@@ -377,10 +381,16 @@ public final class BotWorld {
         if (java.util.Arrays.stream(ONCE).noneMatch(x -> x[0].equals(action))) {
             throw new IllegalArgumentException("Không có việc " + action);
         }
-        if (find(id) == null) {
+        Bot b = find(id);
+        if (b == null) {
             throw new IllegalStateException("Bot chưa vào game");
         }
         ONCE_Q.computeIfAbsent(id, x -> new java.util.concurrent.ConcurrentLinkedQueue<>()).add(action);
+        try {
+            runOnce(b);
+        } catch (Exception e) {
+            logError(b, e);
+        }
     }
 
     public java.util.Map<String, Object> jobInfo(long id) {
@@ -404,8 +414,20 @@ public final class BotWorld {
         if (act == null) {
             return false;
         }
-        if ("quest".equals(job) || "train".equals(job)) { // nhiệm vụ: BotQuest đổi qua lại giữa luyện tập (lên sức mạnh) và làm nhiệm vụ
-            return act.equals("Luyện tập") || act.equals("Làm nhiệm vụ");
+        if ("quest".equals(job)) {
+            return act.startsWith("Làm nhiệm vụ");
+        }
+        if ("train".equals(job)) {
+            return act.equals("Luyện tập");
+        }
+        if ("upde".equals(job)) {
+            return act.equals("Up đệ") || act.startsWith("Săn đệ");
+        }
+        if ("boss".equals(job)) {
+            return act.equals("Săn boss");
+        }
+        if ("broly".equals(job)) {
+            return act.startsWith("Săn đệ");
         }
         if ("skh".equals(job)) {
             return act.startsWith("Úp SKH") || act.equals("Doanh trại");
@@ -420,6 +442,26 @@ public final class BotWorld {
 
     private void doJob0(Bot b, String job) {
         switch (job) {
+            case "quest" -> {
+                b.boss.prefer = null;
+                b.boss.bossAttack = null;
+                b.setMode(0);
+                b.activity = "Làm nhiệm vụ";
+                BotQuest.gI().quest(b);
+            }
+            case "upde" -> {
+                if (b.pet == null) {
+                    b.boss.prefer = "Broly";
+                    b.boss.bossAttack = null;
+                    b.setMode(2);
+                    b.activity = "Săn đệ (Broly)";
+                    b.boss.SanBot();
+                } else {
+                    if (!upDe(b)) {
+                        b.activity = "Up đệ";
+                    }
+                }
+            }
             case "boss" -> startAction(b, BotBrain.BOSS);
             case "broly" -> startAction(b, BotBrain.BROLY);
             case "nrsd" -> startAction(b, nro.models.utils.TimeUtil.isBlackBallWarOpen() ? BotBrain.NRSD : BotBrain.TRAIN);
@@ -427,20 +469,20 @@ public final class BotWorld {
             case "pk" -> startAction(b, BotBrain.PK);
             case "upvang" -> {
                 if (!upVang(b)) {
-                    train(b);
+                    b.activity = "Úp vàng";
                 }
             }
             case "special" -> {
                 if (!planSpecial(b, System.currentTimeMillis())) {
-                    train(b);
+                    b.activity = "ĐHVT / Siêu hạng";
                 }
             }
             case "endgame" -> {
                 if (!BotEndgame.pickActivity(b)) {
-                    train(b);
+                    b.activity = "Hoạt động cao cấp";
                 }
             }
-            default -> train(b); // train, quest (BotQuest dẫn đi làm nhiệm vụ khi đang luyện tập)
+            default -> train(b); // train
         }
     }
 
@@ -451,6 +493,11 @@ public final class BotWorld {
             return;
         }
         switch (a) {
+            case "pet" -> {
+                if (b.pet == null) {
+                    nro.models.services.PetService.gI().createNormalPet(b);
+                }
+            }
             case "shoptop" -> {
                 nro.models.services.SeasonEventService.gI().botBuyTopItems(b);
                 BotEndgame.openBoxes(b, 30);
@@ -1105,8 +1152,11 @@ public final class BotWorld {
         if (allow(b, "quest") && b.accountBot && b.playerTask != null && b.playerTask.taskMain != null
                 && (b.playerTask.taskMain.id <= 10 || BotQuest.gI().pending(b) || !allowAction(b, BotBrain.TRAIN))) {
             if (!"Làm nhiệm vụ".equals(b.activity)) {
-                train(b); // ưu tiên nhiệm vụ (BotQuest dẫn đi); bước cần sức mạnh thì đánh quái lên sức mạnh cho nhiệm vụ
+                b.boss.prefer = null;
+                b.boss.bossAttack = null;
+                b.setMode(0);
                 b.activity = "Làm nhiệm vụ";
+                BotQuest.gI().quest(b);
             }
             return;
         }
@@ -1160,12 +1210,14 @@ public final class BotWorld {
                 b.boss.bossAttack = null;
                 b.setMode(2);
                 b.activity = "Săn boss";
+                b.boss.SanBot();
             }
             case BotBrain.BROLY -> { // săn đệ: đi đánh Broly
                 b.boss.prefer = "Broly";
                 b.boss.bossAttack = null;
                 b.setMode(2);
                 b.activity = "Săn đệ (Broly)";
+                b.boss.SanBot();
             }
             case BotBrain.NRSD ->
                 goNrsd(b);
@@ -1368,6 +1420,7 @@ public final class BotWorld {
             return;
         }
         b.questMob = -1;
+        b.stayMap = true;
         b.activity = "Úp SKH";
         b.joinMap();
     }
@@ -1535,9 +1588,14 @@ public final class BotWorld {
         buyCharm(b, BUA_TRI_TUE, b.charms.tdTriTue, now);
         stockPeas(b);
         nro.models.player.Pet p = b.pet;
-        if (!p.isDie() && b.zone != null && b.zone.equals(p.zone)
-                && (p.nPoint.stamina < p.nPoint.maxStamina / 3 || p.nPoint.hp < p.nPoint.hpMax / 2)) {
+        if (p.isDie()) {
+            nro.models.services.Service.gI().hsChar(p, p.nPoint.hpMax, p.nPoint.mpMax);
+        } else if (b.zone != null && b.zone.equals(p.zone)
+                && (p.nPoint.stamina < p.nPoint.maxStamina / 3 || p.nPoint.hp < p.nPoint.hpMax / 2 || (b.nPoint != null && b.nPoint.hp < b.nPoint.hpMax / 2))) {
             nro.models.services_func.UseItem.gI().eatPea(b);
+            if (p.nPoint.stamina < p.nPoint.maxStamina / 3) {
+                p.nPoint.stamina = p.nPoint.maxStamina;
+            }
         }
     }
 
@@ -1597,6 +1655,10 @@ public final class BotWorld {
                         nro.models.services.InventoryService.gI().addItemBag(b, ItemService.gI().createNewItem(pea.shortValue(), 30));
                         have += 30;
                     }
+                    if (have < 10) {
+                        nro.models.services.InventoryService.gI().addItemBag(b, ItemService.gI().createNewItem(pea.shortValue(), PEA_STOCK));
+                        nro.models.services.InventoryService.gI().sendItemBags(b);
+                    }
                     return;
                 }
             }
@@ -1611,6 +1673,12 @@ public final class BotWorld {
 
     /** Up đệ: map khó nhất hành tinh mình mà đệ còn đánh nổi (không có thì map dễ nhất), bot không đánh để đệ nhận sức mạnh. */
     private boolean upDe(Bot b) {
+        if (b == null || b.pet == null || b.pet.nPoint == null) {
+            return false;
+        }
+        if (b.fusion != null && b.fusion.typeFusion != 0) {
+            b.pet.unFusion();
+        }
         int[] home = b.gender == 0 ? new int[]{1, 2, 3, 4, 6, 29, 30, 28, 27}
                 : b.gender == 1 ? new int[]{8, 9, 10, 11, 12, 13, 33, 34, 32, 31} : new int[]{15, 16, 17, 18, 19, 20, 37, 36, 35};
         int best = -1;
@@ -1643,9 +1711,11 @@ public final class BotWorld {
         b.questMap = best;
         b.questMob = -1;
         b.activity = "Up đệ";
-        if (b.zone == null || b.zone != z) {
+        if (b.zone == null || b.zone.map == null || b.zone.map.mapId != best) {
             ChangeMapService.gI().goToMap(b, z);
-            b.zone.load_Me_To_Another(b);
+            if (b.zone != null) {
+                b.zone.load_Me_To_Another(b);
+            }
         }
         if (b.pet.isDie()) {
             nro.models.services.Service.gI().hsChar(b.pet, b.pet.nPoint.hpMax, b.pet.nPoint.mpMax);

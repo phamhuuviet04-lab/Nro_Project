@@ -880,7 +880,8 @@ public final class Manager {
                 MobTemplate mobTemp = new MobTemplate();
                 mobTemp.id = rs.getByte("id");
                 mobTemp.type = rs.getByte("type");
-                mobTemp.name = rs.getString("name");
+                String mName = rs.getString("name");
+                mobTemp.name = mName != null ? mName.replaceAll("\\s+", " ").trim() : "";
                 mobTemp.hp = rs.getInt("hp");
                 mobTemp.rangeMove = rs.getByte("range_move");
                 mobTemp.speed = rs.getByte("speed");

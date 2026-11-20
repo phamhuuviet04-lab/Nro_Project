@@ -16,7 +16,7 @@ import nro.models.utils.Util;
  * Trang bị của tài khoản bot như người chơi: mặc đồ tốt nhất (set kích hoạt > thiên sứ > hủy diệt > đồ thường), mua cải trang, pet,
  * đeo lưng, ván bay / thú cưỡi ở cửa hàng khi ô đó còn trống, mua sách nâng chiêu cho đệ tử, đủ sức mạnh và vàng thì chế đồ thiên sứ.
  */
-final class BotGear {
+public final class BotGear {
 
     private static final Map<Long, Long> next = new HashMap<>();
     private static final int[] PET_BOOK_GEM = {100, 150, 200, 500}; // giá sách nâng chiêu 1 - 4 đệ tử ở cửa hàng (ngọc)
@@ -26,9 +26,40 @@ final class BotGear {
     }
 
     /** Làm ngay, bỏ qua thời gian chờ (panel giao việc). */
-    static void stepNow(Bot b) {
+    public static void stepNow(Bot b) {
         next.remove(b.id);
-        step(b);
+        dropIllGotten(b);
+        try {
+            BotEndgame.openBoxes(b, 20);
+        } catch (Exception ignored) {
+        }
+        buyBaseGear(b);
+        wearBest(b);
+        wearBestLook(b);
+        tidyBag(b);
+        buyLook(b, 5);  // cải trang
+        buyLook(b, 7);  // pet
+        buyLook(b, 8);  // đeo lưng
+        buyLook(b, 9);  // ván bay / thú cưỡi
+        petSkills(b);
+        craftThienSu(b);
+        if (b.nPoint != null) {
+            b.nPoint.calPoint();
+        }
+        Service.gI().point(b);
+        Service.gI().Send_Caitrang(b);
+        Service.gI().chat(b, "Đã sắm và trang bị đồ tốt nhất!");
+    }
+
+    /** Mặc đồ tốt nhất trong hành trang (khi GM/quản trị chuyển đồ) mà không vứt/dọn đồ. */
+    public static void equipBest(Bot b) {
+        wearBest(b);
+        wearBestLook(b);
+        if (b.nPoint != null) {
+            b.nPoint.calPoint();
+        }
+        Service.gI().point(b);
+        Service.gI().Send_Caitrang(b);
     }
 
     static void step(Bot b) {
@@ -39,6 +70,7 @@ final class BotGear {
         next.put(b.id, now + Util.nextInt(90, 180) * 1000L);
         dropIllGotten(b);
         useCards(b);
+        buyBaseGear(b);
         wearBest(b);
         wearBestLook(b);
         tidyBag(b);
@@ -48,6 +80,61 @@ final class BotGear {
         buyLook(b, 9);  // ván bay / thú cưỡi
         petSkills(b);
         craftThienSu(b);
+    }
+
+    /** Sắm áo, quần, găng, giày, rada (ô 0 - 4) tốt nhất trong shop theo sức mạnh và hành tinh nếu chưa có đồ ngon hơn. */
+    private static void buyBaseGear(Bot b) {
+        if (b.inventory == null || InventoryService.gI().getCountEmptyBag(b) <= 0) {
+            return;
+        }
+        for (int slot = 0; slot <= 4; slot++) {
+            if (slot >= b.inventory.itemsBody.size()) {
+                continue;
+            }
+            Item cur = b.inventory.itemsBody.get(slot);
+            if (cur != null && cur.isNotNullItem() && rank(cur) >= 1) {
+                continue; // Đã có đồ VIP (kích hoạt, thiên sứ, hủy diệt) thì giữ nguyên
+            }
+            long curReq = (cur != null && cur.isNotNullItem()) ? cur.template.strRequire : -1;
+            ItemShop best = null;
+            for (var shop : Manager.SHOPS) {
+                if (shop.tabShops == null) {
+                    continue;
+                }
+                for (var tab : shop.tabShops) {
+                    if (tab.itemShops == null) {
+                        continue;
+                    }
+                    for (ItemShop is : tab.itemShops) {
+                        if (is.temp == null || is.temp.type != slot || !wearable(b, is.temp)) {
+                            continue;
+                        }
+                        if (is.temp.strRequire >= curReq) {
+                            if (best == null || is.temp.strRequire > best.temp.strRequire) {
+                                best = is;
+                            }
+                        }
+                    }
+                }
+            }
+            if (best != null && (cur == null || !cur.isNotNullItem() || best.temp.strRequire > curReq || best.temp.id != cur.template.id)) {
+                if (best.typeSell == 0 && b.inventory.gold >= best.cost) {
+                    b.inventory.gold -= best.cost;
+                }
+                Item it = ItemService.gI().createNewItem((short) best.temp.id);
+                it.itemOptions.addAll(best.options != null && !best.options.isEmpty()
+                        ? Item.ItemOption.copyAll(best.options)
+                        : ItemService.gI().getListOptionItemShop((short) best.temp.id));
+                InventoryService.gI().addItemBag(b, it);
+                for (int i = 0; i < b.inventory.itemsBag.size(); i++) {
+                    Item x = b.inventory.itemsBag.get(i);
+                    if (x != null && x.isNotNullItem() && x.template.id == best.temp.id) {
+                        InventoryService.gI().itemBagToBody(b, i);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     /** Hạng đồ: set kích hoạt 3, thiên sứ 2, hủy diệt 1, còn lại 0. */

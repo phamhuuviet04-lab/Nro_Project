@@ -99,8 +99,6 @@ public class VietLoader {
 
                 if (rs.getBoolean("ban")) {
                     Service.gI().sendThongBaoOK(session, "Tài khoản này đang bị khóa. Liên hệ Admin để biết thêm thông tin");
-                } else if (nro.models.Bot.BotWorld.gI().isBotAccount(session.userId)) {
-                    Service.gI().sendThongBaoOK(session, "Đây là tài khoản bot của máy chủ, không thể đăng nhập");
                 } else if (secondsPass1 < Manager.SECOND_WAIT_LOGIN) {
                     if (secondsPass < secondsPass1) {
                         Service.gI().sendWaitToLogin(session, Manager.SECOND_WAIT_LOGIN - secondsPass);
@@ -117,6 +115,9 @@ public class VietLoader {
                     if (secondsPass < Manager.SECOND_WAIT_LOGIN) {
                         Service.gI().sendWaitToLogin(session, Manager.SECOND_WAIT_LOGIN - secondsPass);
                     } else {
+                        if (nro.models.Bot.BotWorld.gI().isBotAccount(session.userId)) {
+                            nro.models.Bot.BotWorld.gI().releaseAccount(session.userId);
+                        }
                         rs = LocalManager.executeQuery("select * from player where account_id = ? limit 1", session.userId);
                         if (!rs.first()) {
                             //-28 -4 version data game

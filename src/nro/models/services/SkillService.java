@@ -81,6 +81,12 @@ public class SkillService {
         if (player.playerSkill == null) {
             return false;
         }
+        if (mobTarget != null) {
+            player.playerSkill.targetMob = mobTarget;
+        }
+        if (plTarget != null) {
+            player.playerSkill.targetPlayer = plTarget;
+        }
         if (player.playerSkill.skillSelect.template.type == 2 && canUseSkillWithMana(player) && canUseSkillWithCooldown(player)) {
             useSkillBuffToPlayer(player, plTarget);
             return true;
@@ -90,7 +96,8 @@ public class SkillService {
                 && player.playerSkill.skillSelect.template.id != Skill.QUA_CAU_KENH_KHI
                 && player.playerSkill.skillSelect.template.id != Skill.MAKANKOSAPPO))
                 || (plTarget != null && !canAttackPlayer(player, plTarget))
-                || (mobTarget != null && mobTarget.isDie())
+                || (mobTarget != null && mobTarget.isDie()
+                    && !player.playerSkill.prepareLaze && !player.playerSkill.prepareQCKK)
                 || !canUseSkillWithMana(player) || !canUseSkillWithCooldown(player)) {
             return false;
         }
@@ -450,6 +457,12 @@ public class SkillService {
                     //bắt đầu tụ quả cầu
                     player.playerSkill.prepareQCKK = true;
                     player.playerSkill.lastTimePrepareQCKK = System.currentTimeMillis();
+                    if (mobTarget != null) {
+                        player.playerSkill.targetMob = mobTarget;
+                    }
+                    if (plTarget != null) {
+                        player.playerSkill.targetPlayer = plTarget;
+                    }
                     sendPlayerPrepareSkill(player, 4000);
                 } else {
                     //ném cầu
@@ -466,7 +479,12 @@ public class SkillService {
                             }
                         }
                     }
-                    if (mobTarget != null) {
+                    if (mobTarget == null || mobTarget.isDie()) {
+                        if (player.zone != null) {
+                            mobTarget = player.zone.getRandomMobInMap();
+                        }
+                    }
+                    if (mobTarget != null && !mobTarget.isDie()) {
                         if (!player.isBoss) {
                             playerAttackMob(player, mobTarget, false, true);
                             for (Mob mob : player.zone.mobs) {
@@ -489,6 +507,12 @@ public class SkillService {
                     //bắt đầu nạp laze
                     player.playerSkill.prepareLaze = true;
                     player.playerSkill.lastTimePrepareLaze = System.currentTimeMillis();
+                    if (mobTarget != null) {
+                        player.playerSkill.targetMob = mobTarget;
+                    }
+                    if (plTarget != null) {
+                        player.playerSkill.targetPlayer = plTarget;
+                    }
                     sendPlayerPrepareSkill(player, 3000);
                 } else {
                     //bắn laze
@@ -496,7 +520,12 @@ public class SkillService {
                     if (plTarget != null) {
                         playerAttackPlayer(player, plTarget, false);
                     }
-                    if (mobTarget != null) {
+                    if (mobTarget == null || mobTarget.isDie()) {
+                        if (player.zone != null) {
+                            mobTarget = player.zone.getRandomMobInMap();
+                        }
+                    }
+                    if (mobTarget != null && !mobTarget.isDie()) {
                         playerAttackMob(player, mobTarget, false, true);
                     }
                     affterUseSkill(player, player.playerSkill.skillSelect.template.id);

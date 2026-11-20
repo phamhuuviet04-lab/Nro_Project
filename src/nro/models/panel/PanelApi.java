@@ -69,6 +69,7 @@ public class PanelApi {
             case "player" -> player(lng(q.get("id")));
             case "player/money" -> playerMoney(b);
             case "player/give" -> playerGive(b);
+            case "player/giveset" -> playerGiveSet(b);
             case "player/kick" -> playerKick(b);
             case "player/stats" -> playerStats(b);
             case "player/task" -> playerTask(b);
@@ -446,9 +447,17 @@ public class PanelApi {
         return out;
     }
 
+    static Player getLivePlayer(long id) {
+        Player on = Client.gI().getPlayerByID((int) id);
+        if (on == null) {
+            on = nro.models.Bot.BotWorld.gI().find(id);
+        }
+        return on;
+    }
+
     private Map<String, Object> directoryRow(Map<String, Object> r) {
             long id = ((Number) r.get("id")).longValue();
-            Player on = Client.gI().getPlayerByID((int) id);
+            Player on = getLivePlayer(id);
             if (on != null) {
                 Map<String, Object> o = onlineRow(on);
                 o.put("username", r.get("username"));
@@ -782,13 +791,18 @@ public class PanelApi {
     private Object playerMoney(Map<String, Object> b) throws Exception {
         long id = lng(b.get("id"));
         long gold = lng(b.get("gold")), gem = lng(b.get("gem")), ruby = lng(b.get("ruby"));
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         if (on != null) {
             on.inventory.gold = Math.max(0, Math.min(nro.models.player.Inventory.LIMIT_GOLD, on.inventory.gold + gold));
             on.inventory.gem = Math.max(0, on.inventory.gem + gem);
             on.inventory.ruby = Math.max(0, on.inventory.ruby + ruby);
-            Service.gI().sendMoney(on);
-            Service.gI().sendThongBao(on, "Bạn nhận được từ quản trị: " + money(gold, gem, ruby));
+            if (!on.isBot) {
+                Service.gI().sendMoney(on);
+                Service.gI().sendThongBao(on, "Bạn nhận được từ quản trị: " + money(gold, gem, ruby));
+            } else {
+                Service.gI().chat(on, "Đã nhận: " + money(gold, gem, ruby));
+            }
+            PlayerDAO.updatePlayer(on);
             return Map.of("ok", true, "online", true);
         }
         List<Map<String, Object>> rs = rows("select data_inventory from player where id=?", id);
@@ -841,7 +855,7 @@ public class PanelApi {
                 }
             }
         }
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         ItemTemplate t = ItemService.gI().getTemplate(itemId);
         if (on != null) {
             Item it = ItemService.gI().createNewItem((short) itemId, qty);
@@ -852,8 +866,19 @@ public class PanelApi {
             if (!InventoryService.gI().addItemBag(on, it)) {
                 throw new IllegalStateException("Hành trang người chơi đã đầy");
             }
-            InventoryService.gI().sendItemBags(on);
-            Service.gI().sendThongBao(on, "Bạn nhận được từ quản trị: x" + qty + " " + t.name);
+            if (on.isBot) {
+                Service.gI().chat(on, "Đã nhận từ quản trị: x" + qty + " " + t.name);
+                if (on instanceof nro.models.Bot.Bot bBot) {
+                    try {
+                        nro.models.Bot.BotGear.equipBest(bBot);
+                    } catch (Exception ignored) {
+                    }
+                }
+            } else {
+                InventoryService.gI().sendItemBags(on);
+                Service.gI().sendThongBao(on, "Bạn nhận được từ quản trị: x" + qty + " " + t.name);
+            }
+            PlayerDAO.updatePlayer(on);
             return Map.of("ok", true, "online", true);
         }
         List<Map<String, Object>> rs = rows("select items_bag from player where id=?", id);
@@ -881,6 +906,172 @@ public class PanelApi {
         throw new IllegalStateException("Hành trang người chơi đã đầy");
     }
 
+    private Object playerGiveSet(Map<String, Object> b) throws Exception {
+        long id = lng(b.get("id"));
+        int planet = intv(b.getOrDefault("planet", 0));
+        if (planet < 0 || planet > 2) {
+            planet = 0;
+        }
+        String tier = str(b.getOrDefault("tier", "than")).toLowerCase();
+        String stat = str(b.getOrDefault("stat", "sd")).toLowerCase();
+
+        int[] itemIds;
+        String tierName;
+        int skhId = -1;
+
+        if ("shop".equals(tier) || "vip".equals(tier)) {
+            tierName = "VIP Shop";
+            int[][] SET_SHOP = {
+                {233, 245, 257, 269, 281}, // Trái Đất: Áo jean Calic, Quần jean Calic, Găng jean Calic, Giày jean Calic, Rada 12
+                {237, 249, 261, 273, 281}, // Namếc: Áo vàng Zealot, Quần vàng Zealot, Găng vàng Zealot, Giày vàng Zealot, Rada 12
+                {241, 253, 265, 277, 281}  // Xayda: Áo lưỡng long, Quần lưỡng long, Găng lưỡng long, Giày lưỡng long, Rada 12
+            };
+            itemIds = SET_SHOP[planet];
+        } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
+            tierName = "Shop Cùi nhất (Cấp 1)";
+            int[][] SET_CUI = {
+                {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
+                {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
+                {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
+            };
+            itemIds = SET_CUI[planet];
+        } else if (tier.startsWith("skh")) {
+            tierName = "Kích Hoạt (SKH)";
+            int[][] SET_THAN = {
+                {555, 556, 562, 563, 561},
+                {557, 558, 564, 565, 561},
+                {559, 560, 566, 567, 561}
+            };
+            itemIds = SET_THAN[planet];
+            int[][] SKH_IDS = {
+                {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
+                {130, 131, 132}, // Namếc: Picolo (130), Ốc Tiêu (131), Pikkoro Daimao (132)
+                {133, 134, 135}  // Xayda: Kakarot (133), Cadic (134), Nappa (135)
+            };
+            String[][] SKH_NAMES = {
+                {"Songoku", "Thiên Xin Hăng", "Kirin"},
+                {"Picolo", "Ốc Tiêu", "Pikkoro Daimao"},
+                {"Kakarot", "Cadic", "Nappa"}
+            };
+            int skhIdx = 0;
+            if (tier.contains("2") || tier.contains("txh") || tier.contains("octieu") || tier.contains("cadic")) {
+                skhIdx = 1;
+            } else if (tier.contains("3") || tier.contains("kirin") || tier.contains("pikkoro") || tier.contains("nappa")) {
+                skhIdx = 2;
+            }
+            skhId = SKH_IDS[planet][skhIdx];
+            tierName = "SKH " + SKH_NAMES[planet][skhIdx];
+        } else {
+            tierName = "Thần Linh";
+            int[][] SET_THAN = {
+                {555, 556, 562, 563, 561}, // Trái Đất: Áo, Quần, Găng, Giầy Thần Linh, Nhẫn Thần Linh
+                {557, 558, 564, 565, 561}, // Namếc: Áo, Quần, Găng, Giầy Thần Namếc, Nhẫn Thần Linh
+                {559, 560, 566, 567, 561}  // Xayda: Áo, Quần, Găng, Giầy Thần Xayda, Nhẫn Thần Linh
+            };
+            itemIds = SET_THAN[planet];
+        }
+
+        int statOptId = 50;
+        int statParam = 21;
+        String statName = "Sức đánh +21%";
+        if ("hp".equals(stat)) {
+            statOptId = 77;
+            statParam = 35;
+            statName = "HP +35%";
+        } else if ("tn".equals(stat) || "tiemnang".equals(stat)) {
+            statOptId = 101;
+            statParam = 35;
+            statName = "Tiềm năng, sức mạnh +35%";
+        }
+
+        List<Item> itemsToSend = new ArrayList<>();
+        for (int itemId : itemIds) {
+            Item it = ItemService.gI().createNewItem((short) itemId, 1);
+            nro.models.services.RewardService.gI().initChiSoItem(it);
+            if (it.itemOptions.isEmpty()) {
+                List<Item.ItemOption> shopOps = ItemService.gI().getListOptionItemShop((short) itemId);
+                if (shopOps != null && !shopOps.isEmpty()) {
+                    it.itemOptions.addAll(shopOps);
+                }
+            }
+            // Thêm option Kích Hoạt nếu là set SKH
+            if (skhId > 0) {
+                it.itemOptions.add(new Item.ItemOption(skhId, 1));
+                for (int subId : ItemService.gI().getOptionIdsBySKH(skhId)) {
+                    it.itemOptions.add(new Item.ItemOption(subId, 1));
+                }
+            }
+            // Mở 7 lỗ sao pha lê và ép 7 sao
+            it.itemOptions.add(new Item.ItemOption(107, 7));
+            it.itemOptions.add(new Item.ItemOption(102, 7));
+            it.itemOptions.add(new Item.ItemOption(statOptId, statParam));
+            itemsToSend.add(it);
+        }
+
+        Player on = getLivePlayer(id);
+        if (on != null) {
+            int emptySlots = 0;
+            for (Item slot : on.inventory.itemsBag) {
+                if (!slot.isNotNullItem()) {
+                    emptySlots++;
+                }
+            }
+            if (emptySlots < itemsToSend.size()) {
+                throw new IllegalStateException("Hành trang chỉ còn " + emptySlots + " ô trống (cần " + itemsToSend.size() + " ô)");
+            }
+            for (Item it : itemsToSend) {
+                InventoryService.gI().addItemBag(on, it);
+            }
+            if (on.isBot) {
+                Service.gI().chat(on, "Đã nhận Set đồ " + tierName + " 7 sao (" + statName + ")");
+                if (on instanceof nro.models.Bot.Bot bBot) {
+                    try {
+                        nro.models.Bot.BotGear.equipBest(bBot);
+                    } catch (Exception ignored) {
+                    }
+                }
+            } else {
+                InventoryService.gI().sendItemBags(on);
+                Service.gI().sendThongBao(on, "Bạn nhận được 1 Set đồ " + tierName + " 7 sao (" + statName + ") từ Quản trị!");
+            }
+            PlayerDAO.updatePlayer(on);
+            return Map.of("ok", true, "online", true, "count", itemsToSend.size(), "tier", tierName, "stat", statName);
+        }
+
+        // Người chơi offline: sửa trực tiếp trong items_bag database
+        List<Map<String, Object>> rs = rows("select items_bag from player where id=?", id);
+        if (rs.isEmpty()) {
+            throw new IllegalArgumentException("Không có nhân vật");
+        }
+        JsonArray bag = arr(rs.get(0).get("items_bag"));
+        List<Integer> emptySlotIndices = new ArrayList<>();
+        for (int i = 0; i < bag.size(); i++) {
+            JsonArray slot = parse(bag.get(i).getAsString()).getAsJsonArray();
+            if (slot.get(0).getAsInt() == -1) {
+                emptySlotIndices.add(i);
+            }
+        }
+        if (emptySlotIndices.size() < itemsToSend.size()) {
+            throw new IllegalStateException("Hành trang người chơi chỉ còn " + emptySlotIndices.size() + " ô trống (cần " + itemsToSend.size() + " ô)");
+        }
+        for (int idx = 0; idx < itemsToSend.size(); idx++) {
+            Item it = itemsToSend.get(idx);
+            int slotIndex = emptySlotIndices.get(idx);
+            JsonArray opsJson = new JsonArray();
+            for (Item.ItemOption io : it.itemOptions) {
+                opsJson.add("[" + io.optionTemplate.id + "," + io.param + "]");
+            }
+            JsonArray itJson = new JsonArray();
+            itJson.add((int) it.template.id);
+            itJson.add(1);
+            itJson.add(opsJson.toString());
+            itJson.add(System.currentTimeMillis());
+            bag.set(slotIndex, new com.google.gson.JsonPrimitive(itJson.toString()));
+        }
+        update("update player set items_bag=? where id=?", bag.toString(), id);
+        return Map.of("ok", true, "online", false, "count", itemsToSend.size(), "tier", tierName, "stat", statName);
+    }
+
     // ------------------------------------------------------------------ sửa nhân vật (online sửa thẳng, offline sửa database)
     /** Chỉ số gốc: {khóa, vị trí trong data_point} */
     private static final Object[][] STAT_FIELDS = {{"limitPower", 0}, {"power", 1}, {"tiemNang", 2}, {"stamina", 3}, {"maxStamina", 4},
@@ -888,7 +1079,7 @@ public class PanelApi {
 
     private Object playerStats(Map<String, Object> b) throws Exception {
         long id = lng(b.get("id"));
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         if (on != null) {
             nro.models.player.NPoint n = on.nPoint;
             for (Object[] f : STAT_FIELDS) {
@@ -943,14 +1134,16 @@ public class PanelApi {
             throw new IllegalArgumentException("Không có nhiệm vụ " + taskId);
         }
         index = Math.max(0, Math.min(tpl.subTasks.size() - 1, index));
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         if (on != null) {
             nro.models.task.TaskMain t = nro.models.services.TaskService.gI().getTaskMainById(on, taskId);
             t.index = index;
             t.subTasks.get(index).count = (short) count;
             t.lastTime = System.currentTimeMillis();
             on.playerTask.taskMain = t;
-            nro.models.services.TaskService.gI().sendTaskMain(on);
+            if (!on.isBot) {
+                nro.models.services.TaskService.gI().sendTaskMain(on);
+            }
             PlayerDAO.updatePlayer(on);
             return Map.of("ok", true, "online", true);
         }
@@ -1020,10 +1213,12 @@ public class PanelApi {
             throw new IllegalArgumentException("Tên đã có người dùng");
         }
         update("update player set name=? where id=?", name, id);
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         if (on != null) {
             on.name = name;
-            Service.gI().sendThongBao(on, "Quản trị đã đổi tên nhân vật thành " + name + ", thoát ra vào lại để thấy tên mới");
+            if (!on.isBot) {
+                Service.gI().sendThongBao(on, "Quản trị đã đổi tên nhân vật thành " + name + ", thoát ra vào lại để thấy tên mới");
+            }
         }
         return Map.of("ok", true);
     }
@@ -1038,16 +1233,18 @@ public class PanelApi {
             case "box" -> "items_box";
             default -> "items_bag";
         };
-        Player on = Client.gI().getPlayerByID((int) id);
+        Player on = getLivePlayer(id);
         if (on != null) {
             List<Item> list = where.equals("body") ? on.inventory.itemsBody : where.equals("box") ? on.inventory.itemsBox : on.inventory.itemsBag;
             if (index < 0 || index >= list.size()) {
                 throw new IllegalArgumentException("Sai ô");
             }
             list.set(index, ItemService.gI().createItemNull());
-            InventoryService.gI().sendItemBags(on);
-            InventoryService.gI().sendItemBody(on);
-            nro.models.services.InventoryService.gI().sendItemBox(on);
+            if (!on.isBot) {
+                InventoryService.gI().sendItemBags(on);
+                InventoryService.gI().sendItemBody(on);
+                nro.models.services.InventoryService.gI().sendItemBox(on);
+            }
             Service.gI().point(on);
             PlayerDAO.updatePlayer(on);
             return Map.of("ok", true, "online", true);
@@ -1101,9 +1298,19 @@ public class PanelApi {
 
     private Object playerSave(Map<String, Object> b) {
         int n = 0;
-        for (Player p : onlinePlayers()) {
-            if (b.get("id") == null || p.id == lng(b.get("id"))) {
+        if (b.get("id") != null) {
+            Player p = getLivePlayer(lng(b.get("id")));
+            if (p != null) {
                 PlayerDAO.updatePlayer(p);
+                n++;
+            }
+        } else {
+            for (Player p : onlinePlayers()) {
+                PlayerDAO.updatePlayer(p);
+                n++;
+            }
+            for (nro.models.Bot.Bot bot : nro.models.Bot.BotWorld.gI().bots()) {
+                PlayerDAO.updatePlayer(bot);
                 n++;
             }
         }
@@ -2554,16 +2761,13 @@ public class PanelApi {
     // ------------------------------------------------------------------ chức năng thêm
 
     private Object playerTeleport(Map<String, Object> b) {
-        Player on = Client.gI().getPlayerByID(intv(b.get("id")));
+        Player on = getLivePlayer(lng(b.get("id")));
         if (on == null) {
             throw new IllegalStateException("Người chơi không online");
         }
         long to = lng(b.getOrDefault("to", 0));
         if (to > 0) { // tới chỗ 1 người chơi / bot (cùng khu)
-            Player t = Client.gI().getPlayerByID((int) to);
-            if (t == null) {
-                t = nro.models.Bot.BotWorld.gI().find(to);
-            }
+            Player t = getLivePlayer(to);
             if (t == null || t.zone == null) {
                 throw new IllegalStateException("Người cần tới không online");
             }
@@ -2585,19 +2789,33 @@ public class PanelApi {
 
     private Object giveAll(Map<String, Object> b) throws Exception {
         int n = 0, full = 0;
-        for (Player p : onlinePlayers()) {
+        List<Player> targets = new ArrayList<>(onlinePlayers());
+        for (nro.models.Bot.Bot bot : nro.models.Bot.BotWorld.gI().bots()) {
+            if (bot != null && !targets.contains(bot)) {
+                targets.add(bot);
+            }
+        }
+        for (Player p : targets) {
             Map<String, Object> one = new LinkedHashMap<>(b);
             one.put("id", p.id);
-            try {
-                if (intv(b.getOrDefault("itemId", -1)) >= 0) {
+            boolean gotAny = false;
+            if (intv(b.getOrDefault("itemId", -1)) >= 0) {
+                try {
                     playerGive(one);
+                    gotAny = true;
+                } catch (IllegalStateException e) {
+                    full++;
                 }
-                if (lng(b.get("gold")) != 0 || lng(b.get("gem")) != 0 || lng(b.get("ruby")) != 0) {
+            }
+            if (lng(b.get("gold")) != 0 || lng(b.get("gem")) != 0 || lng(b.get("ruby")) != 0) {
+                try {
                     playerMoney(one);
+                    gotAny = true;
+                } catch (Exception ignored) {
                 }
+            }
+            if (gotAny) {
                 n++;
-            } catch (IllegalStateException e) {
-                full++;
             }
         }
         return Map.of("ok", true, "given", n, "bagFull", full);

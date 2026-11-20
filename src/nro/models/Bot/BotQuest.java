@@ -91,12 +91,16 @@ public class BotQuest {
     }
 
     // ------------------------------------------------------------------ nhiệm vụ
-    /** Bước nhiệm vụ cần lên sức mạnh / đang chờ: tắt Luyện tập trên panel thì vẫn ghi là đang làm nhiệm vụ (đánh quái cho nhiệm vụ). */
+    /** Bước nhiệm vụ cần lên sức mạnh / đang chờ: tắt Luyện tập trên panel hoặc đang giao việc làm nhiệm vụ thì vẫn ghi là đang làm nhiệm vụ. */
     private static String trainLabel(Bot b) {
-        return BotWorld.allow(b, "train") ? "Luyện tập" : "Làm nhiệm vụ";
+        String job = BotWorld.jobOf(b.id);
+        if ("quest".equals(job) || !BotWorld.allow(b, "train")) {
+            return "Làm nhiệm vụ";
+        }
+        return "Luyện tập";
     }
 
-    private void quest(Bot b) {
+    public void quest(Bot b) {
         b.questMap = -1;
         b.questMob = -1;
         TaskService.gI().checkDoneTaskPower(b, b.nPoint.power); // bước "Đạt ... sức mạnh" chỉ được ghi khi sức mạnh tăng: chạm giới hạn thì kẹt
@@ -170,7 +174,16 @@ public class BotQuest {
         if (qbId != null) { // bước hạ boss ghi theo mã boss (TaskService): tên bước khác tên boss ("Số 2 (Android 19)", "Kinh Kong"...)
             nro.models.boss.Boss boss = bossById(qbId);
             if (boss == null) {
-                b.activity = trainLabel(b); // boss chưa xuất hiện: luyện tập chờ
+                int waitMap = questBossWaitMap((int) code);
+                if (waitMap >= 0) {
+                    b.activity = "Chờ " + st.name;
+                    b.questMap = waitMap;
+                    if (b.zone.map.mapId != waitMap) {
+                        goTo(b, waitMap);
+                    }
+                } else {
+                    b.activity = trainLabel(b); // boss chưa xuất hiện: luyện tập chờ
+                }
                 actionable.put(b.id, false);
                 if (b.getMode() == 2) {
                     b.boss.prefer = null;
@@ -179,11 +192,14 @@ public class BotQuest {
                 return;
             }
             b.activity = "Làm nhiệm vụ";
-            if (b.getMode() != 2 || b.boss.prefer == null || !b.boss.prefer.equals(boss.name)) {
-                b.boss.prefer = boss.name;
-                b.boss.bossAttack = null;
-                b.setMode(2);
+            b.boss.prefer = boss.name;
+            b.boss.bossAttack = boss;
+            b.setMode(2);
+            if (boss.zone != null && b.zone != boss.zone) {
+                ChangeMapService.gI().goToMap(b, boss.zone);
+                b.zone.load_Me_To_Another(b);
             }
+            b.boss.SanBot();
             return;
         }
         int mobId = tm.id == 8 && tm.index == 1 ? new int[]{11, 12, 10}[Math.max(0, Math.min(2, b.gender))] // ngọc 7 sao rơi từ quái mẹ (Mob: TASK_8_1)
@@ -207,7 +223,8 @@ public class BotQuest {
         }
         int mobMap = mobId < 0 ? -1 : mobMap(b, mobId);
         int target = mobMap >= 0 ? mobMap : map;
-        if (target >= 0 && !b.strongEnough(target)) { // quái map nhiệm vụ quá mạnh: luyện thêm ở map hợp sức rồi mới tới
+        String curJob = BotWorld.jobOf(b.id);
+        if (target >= 0 && !b.strongEnough(target) && !"quest".equals(curJob)) { // quái map nhiệm vụ quá mạnh: luyện thêm ở map hợp sức rồi mới tới (trừ khi admin giao việc quest)
             b.activity = trainLabel(b);
             actionable.put(b.id, false);
             if (!b.strongEnough(b.zone.map.mapId)) {
@@ -325,10 +342,45 @@ public class BotQuest {
     /** Loại quái có tên dài nhất nằm trong tên bước nhiệm vụ ("Đánh 3 con khủng long mẹ" -> khủng long mẹ), -1 nếu không có. */
     /** Boss đang sống ứng với bước "Tiêu diệt <tên boss>" (bỏ "cấp N", lấy tên trong ngoặc nếu có), null nếu chưa xuất hiện. */
     /** Mã bước (nhiệm vụ * 100 + bước) -> boss phải hạ, theo TaskService.checkDoneTaskKillBoss. */
-    private static final Map<Integer, Integer> QUEST_BOSS = Map.of(
-            2501, nro.models.boss.BossID.ANDROID_19, 2502, nro.models.boss.BossID.DR_KORE,
-            2601, nro.models.boss.BossID.ANDROID_15, 2602, nro.models.boss.BossID.ANDROID_14, 2603, nro.models.boss.BossID.ANDROID_13,
-            2701, nro.models.boss.BossID.POC, 2702, nro.models.boss.BossID.PIC, 2703, nro.models.boss.BossID.KING_KONG);
+    private static final Map<Integer, Integer> QUEST_BOSS = Map.ofEntries(
+            Map.entry(2100, (int) nro.models.boss.BossID.KUKU),
+            Map.entry(2101, (int) nro.models.boss.BossID.MAP_DAU_DINH),
+            Map.entry(2102, (int) nro.models.boss.BossID.RAMBO),
+            Map.entry(2201, (int) nro.models.boss.BossID.SO_4),
+            Map.entry(2202, (int) nro.models.boss.BossID.SO_3),
+            Map.entry(2203, (int) nro.models.boss.BossID.SO_2),
+            Map.entry(2204, (int) nro.models.boss.BossID.SO_1),
+            Map.entry(2205, (int) nro.models.boss.BossID.TIEU_DOI_TRUONG),
+            Map.entry(2301, (int) nro.models.boss.BossID.FIDE),
+            Map.entry(2302, (int) nro.models.boss.BossID.FIDE),
+            Map.entry(2303, (int) nro.models.boss.BossID.FIDE),
+            Map.entry(2501, (int) nro.models.boss.BossID.ANDROID_19),
+            Map.entry(2502, (int) nro.models.boss.BossID.DR_KORE),
+            Map.entry(2601, (int) nro.models.boss.BossID.ANDROID_15),
+            Map.entry(2602, (int) nro.models.boss.BossID.ANDROID_14),
+            Map.entry(2603, (int) nro.models.boss.BossID.ANDROID_13),
+            Map.entry(2701, (int) nro.models.boss.BossID.POC),
+            Map.entry(2702, (int) nro.models.boss.BossID.PIC),
+            Map.entry(2703, (int) nro.models.boss.BossID.KING_KONG),
+            Map.entry(2801, (int) nro.models.boss.BossID.XEN_BO_HUNG),
+            Map.entry(2802, (int) nro.models.boss.BossID.XEN_BO_HUNG),
+            Map.entry(2803, (int) nro.models.boss.BossID.XEN_BO_HUNG),
+            Map.entry(2904, (int) nro.models.boss.BossID.SIEU_BO_HUNG)
+    );
+
+    private static int questBossWaitMap(int code) {
+        return switch (code / 100) {
+            case 21 -> 68; // Kuku / Mập đầu đinh / Rambo: Thung lũng Nappa
+            case 22 -> 79; // Tiểu đội sát thủ: Núi khỉ đỏ (Xayda)
+            case 23 -> 80; // Fide: Thung lũng Fide
+            case 25 -> 92; // Android 19 / Dr.Kore: Thành phố phía đông
+            case 26 -> 97; // Android 15, 14, 13: Thành phố phía nam
+            case 27 -> 99; // Poc, Pic, King Kong: Ngọn núi phía bắc
+            case 28 -> 100; // Xên Bọ Hung: Thị trấn Ginder
+            case 29 -> 103; // Siêu Bọ Hung: Võ đài Xên bọ hung
+            default -> -1;
+        };
+    }
 
     private static nro.models.boss.Boss bossById(int id) {
         for (nro.models.boss.Boss x : new java.util.ArrayList<>(nro.models.boss.Boss_Manager.BossManager.gI().getBosses())) {
@@ -359,6 +411,9 @@ public class BotQuest {
             if (n.isEmpty() || x.isDie() || x.zone == null) {
                 continue;
             }
+            if (n.contains("namek") && !s.contains("namek")) {
+                continue; // Bỏ qua boss Namek khi nhiệm vụ không yêu cầu bản Namek
+            }
             if (n.equals(head) || n.equals(inner)) {
                 return x; // đúng tên: "Số 4" chứ không phải "Số 4 Namek" (bản Namek không tính nhiệm vụ)
             }
@@ -373,12 +428,15 @@ public class BotQuest {
         if (step == null) {
             return -1;
         }
-        String s = step.toLowerCase();
+        String s = step.toLowerCase().replaceAll("\\s+", " ").trim();
         int mobId = -1, len = 0;
         for (var t : Manager.MOB_TEMPLATES) {
-            if (t.name != null && t.name.length() > len && s.contains(t.name.toLowerCase())) {
-                mobId = t.id;
-                len = t.name.length();
+            if (t.name != null) {
+                String tn = t.name.toLowerCase().replaceAll("\\s+", " ").trim();
+                if (tn.length() > len && s.contains(tn)) {
+                    mobId = t.id;
+                    len = tn.length();
+                }
             }
         }
         return mobId;

@@ -58,15 +58,29 @@ public class BotSanBoss {
                 giveUp();
                 return;
             }
-            this.bossAttack = all.get(new Random().nextInt(all.size()));
+            List<Boss> alive = new ArrayList<>();
+            for (Boss b : all) {
+                if (b != null && !b.isDie() && b.zone != null && b.zone.map != null
+                        && this.bot.canGo(b.zone.map.mapId) && !this.isMap(b.zone.map.mapId) && !b.zone.isFullPlayer()) {
+                    alive.add(b);
+                }
+            }
+            if (alive.isEmpty()) {
+                giveUp();
+                return;
+            }
             if (prefer != null) {
                 List<Boss> want = new ArrayList<>(), exact = new ArrayList<>();
-                for (Boss b : all) {
-                    if (b != null && b.name != null && b.name.toLowerCase().contains(prefer.toLowerCase()) && !b.isDie() && b.zone != null
-                            && (!this.bot.accountBot || !b.name.toLowerCase().contains("broly") || BotWorld.brolyTarget(this.bot, b))) { // săn đệ: Broly / Super Broly theo luật tranh nhau
-                        want.add(b);
-                        if (b.name.equalsIgnoreCase(prefer)) {
-                            exact.add(b); // "Số 4" chứ không phải "Số 4 Namek" (bản Namek không tính nhiệm vụ)
+                for (Boss b : alive) {
+                    if (b.name != null && b.name.toLowerCase().contains(prefer.toLowerCase())) {
+                        if (!prefer.toLowerCase().contains("namek") && b.name.toLowerCase().contains("namek")) {
+                            continue; // Bỏ qua bản Namek khi săn boss nhiệm vụ (vd: "Số 4 Namek" không tính nhiệm vụ "Số 4")
+                        }
+                        if (!this.bot.accountBot || !b.name.toLowerCase().contains("broly") || BotWorld.brolyTarget(this.bot, b)) { // săn đệ: Broly / Super Broly theo luật tranh nhau
+                            want.add(b);
+                            if (b.name.equalsIgnoreCase(prefer)) {
+                                exact.add(b); // "Số 4" chứ không phải "Số 4 Namek" (bản Namek không tính nhiệm vụ)
+                            }
                         }
                     }
                 }
@@ -112,20 +126,27 @@ public class BotSanBoss {
                 } else if (System.currentTimeMillis() < waitSuperUntil) {
                     this.bossAttack = null; // đứng chờ Super Broly, chưa bỏ đi
                     return;
+                } else {
+                    this.bossAttack = null;
+                    giveUp();
+                    return;
                 }
+            } else {
+                this.bossAttack = alive.get(new Random().nextInt(alive.size()));
             }
             boolean hunt = prefer != null && this.bossAttack != null && this.bossAttack.name != null
                     && this.bossAttack.name.toLowerCase().contains(prefer.toLowerCase()); // đi săn đệ: Broly / Super Broly máu rất dày, đánh dần như người chơi
 
+            String job = BotWorld.jobOf(this.bot.id);
+            boolean forced = "boss".equals(job) || "broly".equals(job);
+
             boolean bosAction = false;
             if (this.bossAttack != null && this.bossAttack.zone != null && this.bossAttack.zone.map != null) {
                 bosAction = !this.bossAttack.isDie() && this.bot.canGo(this.bossAttack.zone.map.mapId) // tài khoản bot không tới boss ở map chưa mở
-                        && (!this.bot.accountBot || ((hunt || this.bossAttack.nPoint.hpMax <= this.bot.nPoint.dame * 500) // boss quá sức (như người chơi): bỏ qua
+                        && (forced || !this.bot.accountBot || ((hunt || this.bossAttack.nPoint.hpMax <= this.bot.nPoint.dame * 500) // boss quá sức (như người chơi): bỏ qua
                         && this.bossAttack.nPoint.dame * 3 <= this.bot.nPoint.hpMax && this.bot.strongEnough(this.bossAttack.zone.map.mapId)))
                         && !this.isMap(this.bossAttack.zone.map.mapId)
-                        && !this.bossAttack.zone.isFullPlayer()
-                        && this.bossAttack.zone.mobs != null
-                        && this.bossAttack.zone.mobs.size() >= 1;
+                        && !this.bossAttack.zone.isFullPlayer();
             }
 
             if (bosAction) {
@@ -161,8 +182,12 @@ public class BotSanBoss {
 
     private void giveUp() {
         String job = BotWorld.jobOf(this.bot.id);
-        if (this.bot.worldBot && ("boss".equals(job) || "broly".equals(job))) {
-            nextTry = System.currentTimeMillis() + 10_000; // admin giao săn boss: chưa có boss thì đứng chờ, 10 giây tìm lại, không bỏ đi luyện tập
+        if (this.bot.worldBot && ("boss".equals(job) || "broly".equals(job) || "quest".equals(job) || this.prefer != null)) {
+            nextTry = System.currentTimeMillis() + 5_000; // admin giao săn boss / làm nv: chưa có boss thì đứng chờ, 5 giây tìm lại, không bỏ đi luyện tập
+            return;
+        }
+        if (!BotWorld.allow(this.bot, "train")) {
+            nextTry = System.currentTimeMillis() + 5_000; // Luyện tập bị tắt: không quay về luyện tập
             return;
         }
         if (this.bot.worldBot) {
@@ -198,6 +223,9 @@ public class BotSanBoss {
     }
 
     public void SanBot() {
+        if (this.bot.playerSkill != null && (this.bot.playerSkill.prepareLaze || this.bot.playerSkill.prepareQCKK || this.bot.playerSkill.prepareTuSat)) {
+            return;
+        }
         Boss cur = this.bossAttack;
         if (cur != null && !cur.isDie() && this.bot.accountBot && cur.name != null && cur.name.toLowerCase().contains("super broly")
                 && cur.nPoint.hpMax > 1000 && !BotWorld.brolyTarget(this.bot, cur)) {

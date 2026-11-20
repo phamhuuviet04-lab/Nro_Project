@@ -846,4 +846,34 @@ public class Zone {
         return closest;
     }
 
+    public Mob findNearestMob(Player player) {
+        Mob closest = null;
+        int minDistance = Integer.MAX_VALUE;
+
+        for (Mob m : this.mobs) {
+            if (m != null && !m.isDie()) {
+                int distance = Math.abs(m.location.x - player.location.x);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closest = m;
+                }
+            }
+        }
+
+        return closest;
+    }
+
+    public Mob getRandomMobInMap() {
+        List<Mob> alive = new ArrayList<>();
+        for (Mob m : this.mobs) {
+            if (m != null && !m.isDie()) {
+                alive.add(m);
+            }
+        }
+        if (alive.isEmpty()) {
+            return null;
+        }
+        return alive.get(Util.nextInt(alive.size()));
+    }
+
 }

@@ -81,51 +81,50 @@ public class Bot extends Player {
     private int pickTierMap() {
         Random random = new Random();
         long power = this.nPoint.power;
-        if (this.accountBot) {
-            // chọn vùng map theo chỉ số thật (HP, sức đánh) như người chơi tự lượng sức, không chỉ theo sức mạnh
-            long hp = this.nPoint.hpMax, dm = this.nPoint.dame;
-            long byStat = hp >= 3_000_000 && dm >= 150_000 ? Long.MAX_VALUE
-                    : hp >= 500_000 && dm >= 30_000 ? 39_000_000_000L
-                    : hp >= 20_000 ? 1_900_000_000L : 90_000_000L;
-            power = Math.min(power, byStat);
-        }
-        // chết nhiều ở vùng map hiện tại: xuống vùng dễ hơn (mỗi bậc giảm ngưỡng sức mạnh)
-        for (int i = 0, n = TIER_DROP.getOrDefault(this.id, 0); i < n; i++) {
-            power = power >= 40_000_000_000L ? 39_000_000_000L : power >= 2_000_000_000L ? 1_900_000_000L : 90_000_000L;
-        }
         int mapId = 21;
-        if (power < 100000000 && this.accountBot) {
-            // tài khoản bot: dưới 100 triệu chỉ luyện ở các map của hành tinh mình như người mới chơi
-            // không có Vách núi 42 - 44 (máy đo sức mạnh) và Đại hội võ thuật 52: không phải chỗ luyện tập
-            int[] home = this.gender == 0 ? new int[]{1, 2, 3, 4, 6, 29, 30, 28, 27}
-                    : this.gender == 1 ? new int[]{8, 9, 10, 11, 12, 13, 33, 34, 32, 31} : new int[]{15, 16, 17, 18, 19, 20, 37, 36, 35};
-            int lim = power < 2_000_000 ? Math.min(5, home.length) : home.length;
-            mapId = home[random.nextInt(lim)];
-        } else if (power < 100000000) {
-            if (this.gender == 0) {
-                mapId = TraiDat[random.nextInt(TraiDat.length)];
-            } else if (this.gender == 1) {
-                mapId = Namec[random.nextInt(Namec.length)];
+        if (power < 10_000_000L) {
+            int[] home = this.gender == 0 ? new int[]{1, 2, 3, 4, 6}
+                    : this.gender == 1 ? new int[]{8, 9, 10, 11, 12} : new int[]{15, 16, 17, 18, 19};
+            mapId = home[random.nextInt(home.length)];
+        } else if (power < 100_000_000L) {
+            int[] home = this.gender == 0 ? new int[]{27, 28, 29, 30}
+                    : this.gender == 1 ? new int[]{31, 32, 33, 34} : new int[]{35, 36, 37, 38};
+            mapId = home[random.nextInt(home.length)];
+        } else if (power < 500_000_000L) {
+            mapId = 63 + random.nextInt(10); // 63 - 72 (Fide cơ bản)
+        } else if (power < 1_500_000_000L) {
+            // 500M - 1.5 tỷ: Tương lai (nếu vào được) hoặc Fide cao cấp (73-82)
+            if (canGo(92) && random.nextBoolean()) {
+                int[] tl = new int[]{92, 93, 94, 96};
+                mapId = tl[random.nextInt(tl.length)];
             } else {
-                mapId = XayDa[random.nextInt(XayDa.length)];
+                mapId = 73 + random.nextInt(10);
             }
-        } else if (power < 2_000_000_000L) {
-            mapId = 62 + random.nextInt(15);
-        } else if (power < 40_000_000_000L) {
-            if (Util.isTrue(40, 100)) {
-                mapId = 92 + random.nextInt(3); // 92-94 tương lai
+        } else if (power < 15_000_000_000L) {
+            // 1.5 tỷ - 15 tỷ: Tương lai
+            if (canGo(97) && random.nextBoolean()) {
+                mapId = 97 + random.nextInt(4); // 97-100
+            } else if (canGo(92)) {
+                int[] tl = new int[]{92, 93, 94, 96};
+                mapId = tl[random.nextInt(tl.length)];
             } else {
-                mapId = 96 + random.nextInt(5); // 96-100 (bỏ 91 NRSD, 95/103/104 không có quái)
+                mapId = 73 + random.nextInt(10);
             }
         } else {
-            mapId = 105 + random.nextInt(6); // trên 40 tỷ: map Cold (trước đây 70% rơi về Nhà Gôhan không có quái)
+            // > 15 tỷ: Cold (105-110)
+            if (canGo(105)) {
+                mapId = 105 + random.nextInt(6);
+            } else if (canGo(97)) {
+                mapId = 97 + random.nextInt(4);
+            } else {
+                mapId = 92 + random.nextInt(3);
+            }
         }
         return mapId;
     }
 
     /**
-     * Đủ sức đánh quái ở map chưa (như người chơi tự lượng sức): quái tiêu biểu (trung vị HP) chết trong khoảng 30 đòn và
-     * 6 đòn của quái chưa hạ được bot. Map không có quái luôn đi được.
+     * Đủ sức đánh quái ở map chưa: quái không 1-hit bot và bot đánh chết được quái.
      */
     public boolean strongEnough(int mapId) {
         Map m = MapService.gI().getMapById(mapId);
@@ -133,7 +132,6 @@ public class Bot extends Player {
             return true;
         }
         java.util.List<nro.models.mob.Mob> mobs = new java.util.ArrayList<>(m.zones.get(0).mobs);
-        // máy đo sức mạnh (2 tỷ HP, không đánh trả) ở Vách núi: trước đây làm map như "quá sức" nên bot kẹt nhiệm vụ 3.1
         mobs.removeIf(x -> x.tempId == nro.models.consts.ConstMob.MAY_DO_SUC_MANH);
         if (mobs.isEmpty()) {
             return true;
@@ -142,7 +140,7 @@ public class Bot extends Player {
         nro.models.mob.Mob mid = mobs.get(mobs.size() / 2);
         long hp = mid.point.getHpFull();
         long dame = mid.point.dame != 0 ? mid.point.dame : hp * mid.pDame / 100;
-        return hp <= this.nPoint.dame * 30 && dame * 6 <= this.nPoint.hpMax;
+        return dame < this.nPoint.hpMax && hp <= Math.max(200_000, this.nPoint.dame * 100);
     }
 
     /** Map luyện tập đã mở theo nhiệm vụ có quái yếu nhất (trung vị HP thấp nhất) trên hành tinh của bot; -1 nếu chưa mở map nào. */
@@ -172,20 +170,22 @@ public class Bot extends Player {
     public long lastShopTop, lastSieuHang, lastDhvt23; // lần gần nhất mua hộp đua top / đi giải Siêu hạng / ĐHVT 23
 
     public boolean canGo(int mapId) {
-        if (!this.accountBot || (this.stayMap && mapId == this.questMap)) {
+        if (!this.accountBot || (this.stayMap && mapId == this.questMap) || this.questMap == mapId) {
             return true;
         }
         if (MapService.gI().isMapPhoBan(mapId)) {
-            return false; // phó bản bang (doanh trại 53 - 62...) chỉ vào cùng bang qua NPC, không chọn làm map luyện tập (trước đây kẹt ở Trại độc nhãn 3)
+            return false; // phó bản bang (doanh trại 53 - 62...) chỉ vào cùng bang qua NPC, không chọn làm map luyện tập
         }
         Map m = MapService.gI().getMapById(mapId);
         return m != null && !m.zones.isEmpty() && ChangeMapService.gI().checkMapCanJoin(this, m.zones.get(0)) != null;
     }
 
     public void joinMap() {
-        int mapId = MapToPow();
-        for (int t = 0; t < 8 && !(canGo(mapId) && (!this.accountBot || strongEnough(mapId))); t++) {
-            mapId = this.questMap >= 0 ? -1 : MapToPow(); // tài khoản bot: ưu tiên map đánh nổi quái
+        int mapId = this.questMap >= 0 && canGo(this.questMap) ? this.questMap : MapToPow();
+        if (this.questMap < 0 || !canGo(this.questMap)) {
+            for (int t = 0; t < 8 && !(canGo(mapId) && (!this.accountBot || strongEnough(mapId))); t++) {
+                mapId = MapToPow();
+            }
         }
         for (int t = 0; t < 8 && !canGo(mapId); t++) {
             mapId = MapToPow();
@@ -197,12 +197,15 @@ public class Bot extends Player {
             }
         }
         if (this.accountBot && !strongEnough(mapId)) {
-            // rút ngẫu nhiên không ra map vừa sức (hoặc map úp SKH / map nhiệm vụ quá mạnh): tới map dễ nhất đã mở, không liều vào map quái trâu
-            int easy = easiestMap();
-            if (easy < 0) {
-                return;
+            if (this.nPoint != null && this.nPoint.power >= 500_000_000L && canGo(73)) {
+                mapId = 73;
+            } else {
+                int easy = easiestMap();
+                if (easy < 0) {
+                    return;
+                }
+                mapId = easy;
             }
-            mapId = easy;
         }
         Zone zone = getRandomZone(mapId);
         if (zone != null) {
@@ -318,6 +321,9 @@ public class Bot extends Player {
                 BotArena.update(this);
                 break;
         }
+        if (this.pet != null && this.pet.isDie() && "Up đệ".equals(this.activity)) {
+            Service.gI().hsChar(this.pet, this.pet.nPoint.hpMax, this.pet.nPoint.mpMax);
+        }
         if (this.isDie()) {
             this.deathTotal++;
             if (this.accountBot) {
@@ -325,6 +331,7 @@ public class Bot extends Player {
                 if (now - this.deathWindow > 5 * 60_000L) {
                     this.deathWindow = now;
                     this.deaths = 0;
+                    TIER_DROP.remove(this.id);
                 }
                 int td = TIER_DROP.getOrDefault(this.id, 0);
                 if (++this.deaths >= 3 && td < 3) {

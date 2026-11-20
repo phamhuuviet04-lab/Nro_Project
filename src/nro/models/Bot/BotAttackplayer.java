@@ -73,6 +73,9 @@ public class BotAttackplayer extends Bot {
     @Override
     public void update() {
         try {
+            if (this.playerSkill != null && (this.playerSkill.prepareLaze || this.playerSkill.prepareQCKK || this.playerSkill.prepareTuSat)) {
+                return;
+            }
             if (targetPlayer == null || targetPlayer.isDie()) {
                 findTarget();
             }
