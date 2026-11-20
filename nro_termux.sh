@@ -6,7 +6,7 @@ cd "$DIR" || exit 1
 [ -z "$TZ" ] && TZ=$(getprop persist.sys.timezone 2>/dev/null) && export TZ
 DB_USER=nro
 DB_PASS=${DB_PASS:-nro123}
-REPO=https://github.com/Eng77-gif/Nro_Project
+REPO=https://github.com/phamhuuviet04-lab/Nro_Project
 BACKUP_DIR="$HOME/storage/downloads/nro_backup"
 [ -d "$HOME/storage/downloads" ] || BACKUP_DIR="$DIR/backup"
 RAM_FILE="$DIR/.termux_ram"
