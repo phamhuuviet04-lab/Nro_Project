@@ -915,34 +915,36 @@ public class PanelApi {
         String tier = str(b.getOrDefault("tier", "than")).toLowerCase();
         String stat = str(b.getOrDefault("stat", "sd")).toLowerCase();
 
+        int[][] SET_SHOP = {
+            {233, 245, 257, 269, 281}, // Trái Đất: Áo jean Calic, Quần jean Calic, Găng jean Calic, Giày jean Calic, Rada 12
+            {237, 249, 261, 273, 281}, // Namếc: Áo vàng Zealot, Quần vàng Zealot, Găng vàng Zealot, Giày vàng Zealot, Rada 12
+            {241, 253, 265, 277, 281}  // Xayda: Áo lưỡng long, Quần lưỡng long, Găng lưỡng long, Giày lưỡng long, Rada 12
+        };
+        int[][] SET_CUI = {
+            {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
+            {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
+            {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
+        };
+        int[][] SET_THAN = {
+            {555, 556, 562, 563, 561}, // Trái Đất: Áo, Quần, Găng, Giầy Thần Linh, Nhẫn Thần Linh
+            {557, 558, 564, 565, 561}, // Namếc: Áo, Quần, Găng, Giầy Thần Namếc, Nhẫn Thần Linh
+            {559, 560, 566, 567, 561}  // Xayda: Áo, Quần, Găng, Giầy Thần Xayda, Nhẫn Thần Linh
+        };
+
         int[] itemIds;
         String tierName;
         int skhId = -1;
 
         if ("shop".equals(tier) || "vip".equals(tier)) {
             tierName = "VIP Shop";
-            int[][] SET_SHOP = {
-                {233, 245, 257, 269, 281}, // Trái Đất: Áo jean Calic, Quần jean Calic, Găng jean Calic, Giày jean Calic, Rada 12
-                {237, 249, 261, 273, 281}, // Namếc: Áo vàng Zealot, Quần vàng Zealot, Găng vàng Zealot, Giày vàng Zealot, Rada 12
-                {241, 253, 265, 277, 281}  // Xayda: Áo lưỡng long, Quần lưỡng long, Găng lưỡng long, Giày lưỡng long, Rada 12
-            };
             itemIds = SET_SHOP[planet];
         } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
-            tierName = "Shop Cùi nhất (Cấp 1)";
-            int[][] SET_CUI = {
-                {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
-                {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
-                {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
-            };
+            tierName = "Shop Cùi (Cấp 1)";
             itemIds = SET_CUI[planet];
         } else if (tier.startsWith("skh")) {
-            tierName = "Kích Hoạt (Đồ Cùi)";
-            int[][] SET_CUI = {
-                {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
-                {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
-                {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
-            };
-            itemIds = SET_CUI[planet];
+            boolean isThan = tier.contains("than") || tier.contains("tl");
+            itemIds = isThan ? SET_THAN[planet] : SET_CUI[planet];
+
             int[][] SKH_IDS = {
                 {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
                 {130, 131, 132}, // Namếc: Picolo (130), Ốc Tiêu (131), Pikkoro Daimao (132)
@@ -960,14 +962,9 @@ public class PanelApi {
                 skhIdx = 2;
             }
             skhId = SKH_IDS[planet][skhIdx];
-            tierName = "SKH " + SKH_NAMES[planet][skhIdx] + " (Đồ Cùi)";
+            tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (isThan ? " (Đồ Thần)" : " (Đồ Cùi)");
         } else {
             tierName = "Thần Linh";
-            int[][] SET_THAN = {
-                {555, 556, 562, 563, 561}, // Trái Đất: Áo, Quần, Găng, Giầy Thần Linh, Nhẫn Thần Linh
-                {557, 558, 564, 565, 561}, // Namếc: Áo, Quần, Găng, Giầy Thần Namếc, Nhẫn Thần Linh
-                {559, 560, 566, 567, 561}  // Xayda: Áo, Quần, Găng, Giầy Thần Xayda, Nhẫn Thần Linh
-            };
             itemIds = SET_THAN[planet];
         }
 

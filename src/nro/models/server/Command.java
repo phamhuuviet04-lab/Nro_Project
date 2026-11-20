@@ -261,18 +261,19 @@ parameterizedCommands.put("upp", (player, text) -> {
                     Service.gI().sendThongBaoOK(player, "|7|CÚ PHÁP LỆNH NHẬN SET ĐỒ 7 SAO:\n"
                             + "|1|setdo [hành_tinh] <loại_đồ> <dòng_sao>\n"
                             + "|2|- Hành tinh: td, nm, xd (hoặc bỏ trống = theo phái)\n"
-                            + "- Loại đồ:\n"
-                            + "  • tl : Đồ Thần Linh\n"
+                            + "- Loại đồ thường:\n"
+                            + "  • tl : Đồ Thần Linh (Không SKH)\n"
                             + "  • shop : Đồ VIP Shop (Calic / Zealot / Lưỡng Long)\n"
-                            + "  • cui : Đồ Cùi nhất Shop (Cấp 1)\n"
-                            + "  • skh1 : SKH 1 (Songoku / Picolo / Kakarot)\n"
-                            + "  • skh2 : SKH 2 (Thiên Xin Hăng / Ốc Tiêu / Cadic)\n"
-                            + "  • skh3 : SKH 3 (Kirin / Pikkoro / Nappa)\n"
+                            + "  • cui : Đồ Cùi Shop (Cấp 1 - Không SKH)\n"
+                            + "- SKH Đồ Cùi (Sơ sinh mặc ngay):\n"
+                            + "  • skhcui1 / skhcui2 / skhcui3 (hoặc skh1/2/3)\n"
+                            + "- SKH Đồ Thần Linh (Yêu cầu 15-18 tỉ SM):\n"
+                            + "  • skhtl1 / skhtl2 / skhtl3 (hoặc skhthan1/2/3)\n"
                             + "- Dòng sao: sd (Sức đánh), hp (Máu), tn (Tiềm năng)\n\n"
                             + "|4|Ví dụ:\n"
-                            + "• setdo tl sd : Set Thần Linh SĐ 7★\n"
-                            + "• setdo cui sd : Set Cùi nhất shop SĐ 7★\n"
-                            + "• setdo skh1 sd : Set SKH 1 SĐ 7★\n"
+                            + "• setdo skhcui1 sd : SKH 1 Đồ Cùi SĐ 7★ (sơ sinh mặc ngay)\n"
+                            + "• setdo skhtl1 sd : SKH 1 Đồ Thần SĐ 7★ (chỉ số khủng)\n"
+                            + "• setdo tl sd : Set Thần Linh chuẩn SĐ 7★\n"
                             + "• setdo shop hp : Set VIP Shop HP 7★");
                     return;
                 } else if (parts.length == 2) {
@@ -296,34 +297,36 @@ parameterizedCommands.put("upp", (player, text) -> {
 
                 if (planet < 0 || planet > 2) planet = 0;
 
+                int[][] SET_SHOP = {
+                    {233, 245, 257, 269, 281}, // Trái Đất: Calic
+                    {237, 249, 261, 273, 281}, // Namếc: Zealot
+                    {241, 253, 265, 277, 281}  // Xayda: Lưỡng Long
+                };
+                int[][] SET_CUI = {
+                    {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
+                    {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
+                    {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
+                };
+                int[][] SET_THAN = {
+                    {555, 556, 562, 563, 561}, // Trái Đất
+                    {557, 558, 564, 565, 561}, // Namếc
+                    {559, 560, 566, 567, 561}  // Xayda
+                };
+
                 int[] itemIds;
                 String tierName;
                 int skhId = -1;
 
                 if ("shop".equals(tier) || "vip".equals(tier)) {
                     tierName = "VIP Shop";
-                    int[][] SET_SHOP = {
-                        {233, 245, 257, 269, 281}, // Trái Đất: Calic
-                        {237, 249, 261, 273, 281}, // Namếc: Zealot
-                        {241, 253, 265, 277, 281}  // Xayda: Lưỡng Long
-                    };
                     itemIds = SET_SHOP[planet];
                 } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
-                    tierName = "Shop Cùi nhất (Cấp 1)";
-                    int[][] SET_CUI = {
-                        {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
-                        {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
-                        {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
-                    };
+                    tierName = "Shop Cùi (Cấp 1)";
                     itemIds = SET_CUI[planet];
                 } else if (tier.startsWith("skh")) {
-                    tierName = "Kích Hoạt (Đồ Cùi)";
-                    int[][] SET_CUI = {
-                        {0, 6, 21, 27, 12}, // Trái Đất: Áo vải 3 lỗ, Quần vải đen, Găng vải đen, Giày nhựa, Rada 1
-                        {1, 7, 22, 28, 12}, // Namếc: Áo sợi len, Quần sợi len, Găng sợi len, Giầy sợi len, Rada 1
-                        {2, 8, 23, 29, 12}  // Xayda: Áo vải thô, Quần vải thô, Găng vải thô, Giày vải thô, Rada 1
-                    };
-                    itemIds = SET_CUI[planet];
+                    boolean isThan = tier.contains("than") || tier.contains("tl");
+                    itemIds = isThan ? SET_THAN[planet] : SET_CUI[planet];
+
                     int[][] SKH_IDS = {
                         {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
                         {130, 131, 132}, // Namếc: Picolo (130), Ốc Tiêu (131), Pikkoro Daimao (132)
@@ -341,14 +344,9 @@ parameterizedCommands.put("upp", (player, text) -> {
                         skhIdx = 2;
                     }
                     skhId = SKH_IDS[planet][skhIdx];
-                    tierName = "SKH " + SKH_NAMES[planet][skhIdx] + " (Đồ Cùi)";
+                    tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (isThan ? " (Đồ Thần)" : " (Đồ Cùi)");
                 } else {
                     tierName = "Thần Linh";
-                    int[][] SET_THAN = {
-                        {555, 556, 562, 563, 561}, // Trái Đất
-                        {557, 558, 564, 565, 561}, // Namếc
-                        {559, 560, 566, 567, 561}  // Xayda
-                    };
                     itemIds = SET_THAN[planet];
                 }
 
