@@ -935,15 +935,19 @@ public class PanelApi {
         String tierName;
         int skhId = -1;
 
-        if ("shop".equals(tier) || "vip".equals(tier)) {
+        boolean isSKH = tier.startsWith("skh") || tier.contains("kh") || tier.contains("kichhoat");
+        boolean isCui = tier.contains("cui") || tier.contains("sosinh") || tier.contains("cap1");
+        boolean isShop = tier.contains("shop") || tier.contains("vip");
+
+        if (isShop) {
             tierName = "VIP Shop";
             itemIds = SET_SHOP[planet];
-        } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
+        } else if (isCui && !isSKH) {
             tierName = "Shop Cùi (Cấp 1)";
             itemIds = SET_CUI[planet];
-        } else if (tier.startsWith("skh")) {
-            boolean isThan = tier.contains("than") || tier.contains("tl");
-            itemIds = isThan ? SET_THAN[planet] : SET_CUI[planet];
+        } else if (isSKH) {
+            boolean useThan = !isCui; // Mặc định SKH là ĐỒ THẦN LINH trừ khi chỉ định rõ 'cui'
+            itemIds = useThan ? SET_THAN[planet] : SET_CUI[planet];
 
             int[][] SKH_IDS = {
                 {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
@@ -962,9 +966,9 @@ public class PanelApi {
                 skhIdx = 2;
             }
             skhId = SKH_IDS[planet][skhIdx];
-            tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (isThan ? " (Đồ Thần)" : " (Đồ Cùi)");
+            tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (useThan ? " (Đồ Thần Linh)" : " (Đồ Cùi)");
         } else {
-            tierName = "Thần Linh";
+            tierName = "Thần Linh (Không SKH)";
             itemIds = SET_THAN[planet];
         }
 

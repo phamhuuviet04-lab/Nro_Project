@@ -252,55 +252,47 @@ parameterizedCommands.put("upp", (player, text) -> {
 
         parameterizedCommands.put("setdo", (player, text) -> {
             try {
-                String[] parts = text.trim().split("\\s+");
-                int planet = player.gender;
-                String tier = "tl";
-                String stat = "sd";
-
-                if (parts.length == 1) {
-                    Service.gI().sendThongBaoOK(player, "|7|CÚ PHÁP LỆNH NHẬN SET ĐỒ 7 SAO:\n"
-                            + "|1|setdo [hành_tinh] <loại_đồ> <dòng_sao>\n"
-                            + "|2|- Hành tinh: td, nm, xd (hoặc bỏ trống = theo phái)\n"
-                            + "- Loại đồ thường:\n"
-                            + "  • tl : Đồ Thần Linh (Không SKH)\n"
-                            + "  • shop : Đồ VIP Shop (Calic / Zealot / Lưỡng Long)\n"
-                            + "  • cui : Đồ Cùi Shop (Cấp 1 - Không SKH)\n"
-                            + "- SKH Đồ Cùi (Sơ sinh mặc ngay):\n"
-                            + "  • skhcui1 / skhcui2 / skhcui3 (hoặc skh1/2/3)\n"
-                            + "- SKH Đồ Thần Linh (Yêu cầu 15-18 tỉ SM):\n"
-                            + "  • skhtl1 / skhtl2 / skhtl3 (hoặc skhthan1/2/3)\n"
-                            + "- Dòng sao:\n"
-                            + "  • sd : Sức đánh (+21%)\n"
-                            + "  • hp : HP (+35%)\n"
-                            + "  • tn : Tiềm năng (+35%)\n"
-                            + "  • hm : Hút máu (+25%)\n"
-                            + "  • hk : Hút KI (+10%)\n"
-                            + "  • hmhk : Cả 2 dòng (Hút máu 25% + Hút KI 10%)\n\n"
-                            + "|4|Ví dụ:\n"
-                            + "• setdo skhcui1 hm : SKH 1 Đồ Cùi Hút Máu 25% 7★\n"
-                            + "• setdo skhtl1 hmhk : SKH 1 Đồ Thần Hút Máu 25% & KI 10% 7★\n"
-                            + "• setdo tl sd : Set Thần Linh chuẩn SĐ 7★\n"
-                            + "• setdo shop hp : Set VIP Shop HP 7★");
-                    return;
-                } else if (parts.length == 2) {
-                    stat = parts[1].toLowerCase();
-                } else if (parts.length == 3) {
-                    String p1 = parts[1].toLowerCase();
-                    String p2 = parts[2].toLowerCase();
-                    if (p1.equals("td") || p1.equals("nm") || p1.equals("xd") || p1.equals("0") || p1.equals("1") || p1.equals("2")) {
-                        planet = p1.equals("nm") || p1.equals("1") ? 1 : (p1.equals("xd") || p1.equals("2") ? 2 : 0);
-                        tier = p2;
-                    } else {
-                        tier = p1;
-                        stat = p2;
-                    }
-                } else if (parts.length >= 4) {
-                    String p1 = parts[1].toLowerCase();
-                    planet = p1.equals("nm") || p1.equals("1") ? 1 : (p1.equals("xd") || p1.equals("2") ? 2 : 0);
-                    tier = parts[2].toLowerCase();
-                    stat = parts[3].toLowerCase();
+                String raw = text.toLowerCase().trim();
+                if (raw.startsWith("setdo")) {
+                    raw = raw.substring(5).trim();
+                }
+                if (raw.startsWith("/")) {
+                    raw = raw.substring(1).trim();
                 }
 
+                if (raw.isEmpty() || raw.equals("help") || raw.equals("?")) {
+                    Service.gI().sendThongBaoOK(player, "|7|CÚ PHÁP LỆNH NHẬN SET ĐỒ 7 SAO:\n"
+                            + "|1|setdo [hành_tinh] <loại_đồ> <dòng_sao>\n\n"
+                            + "|2|👑 SET KÍCH HOẠT (KH) THẦN LINH:\n"
+                            + "  • setdo skhthan (hoặc setdo skhtl, setdo kh than)\n"
+                            + "  • setdo skhthan1 / skhthan2 / skhthan3\n\n"
+                            + "|2|⚡ SET KÍCH HOẠT ĐỒ CÙI (SƠ SINH MẶC NGAY):\n"
+                            + "  • setdo skhcui (hoặc setdo skhcui1 / skhcui2 / skhcui3)\n\n"
+                            + "|2|⭐ TRANG BỊ THƯỜNG (KHÔNG SKH):\n"
+                            + "  • setdo tl : Đồ Thần Linh thường\n"
+                            + "  • setdo shop : Đồ VIP Shop (Calic/Zealot/Lưỡng Long)\n"
+                            + "  • setdo cui : Đồ Cùi cấp 1\n\n"
+                            + "|2|✨ DÒNG SAO (Thêm vào cuối):\n"
+                            + "  • sd (+21% SĐ), hp (+35% HP), tn (+35% TN)\n"
+                            + "  • hm (+25% Hút máu), hk (+10% Hút KI)\n"
+                            + "  • hmhk (Cả 2: Hút máu 25% + Hút KI 10%)\n\n"
+                            + "|4|VÍ DỤ:\n"
+                            + "• setdo skhthan sd : Set KH Thần Linh SĐ 7★\n"
+                            + "• setdo skhthan hm : Set KH Thần Linh Hút máu 25% 7★\n"
+                            + "• setdo skhthan hmhk : Set KH Thần Linh Hút máu 25% & KI 10% 7★\n"
+                            + "• setdo skhcui sd : Set KH Đồ Cùi SĐ 7★");
+                    return;
+                }
+
+                // 1. Hành tinh (Mặc định theo phái nhân vật)
+                int planet = player.gender;
+                if (raw.contains("td") || raw.contains("traidat") || raw.contains(" hành tinh 0")) {
+                    planet = 0;
+                } else if (raw.contains("nm") || raw.contains("namec") || raw.contains(" hành tinh 1")) {
+                    planet = 1;
+                } else if (raw.contains("xd") || raw.contains("xayda") || raw.contains(" hành tinh 2")) {
+                    planet = 2;
+                }
                 if (planet < 0 || planet > 2) planet = 0;
 
                 int[][] SET_SHOP = {
@@ -319,19 +311,25 @@ parameterizedCommands.put("upp", (player, text) -> {
                     {559, 560, 566, 567, 561}  // Xayda
                 };
 
+                // 2. Nhận diện loại đồ và Kích hoạt
+                boolean isSKH = raw.contains("skh") || raw.contains(" kh") || raw.startsWith("kh") || raw.contains("kichhoat");
+                boolean isCui = raw.contains("cui") || raw.contains("sosinh") || raw.contains("cap1");
+                boolean isShop = raw.contains("shop") || raw.contains("vip") || raw.contains("calic") || raw.contains("zealot") || raw.contains("luonglong");
+
                 int[] itemIds;
                 String tierName;
                 int skhId = -1;
 
-                if ("shop".equals(tier) || "vip".equals(tier)) {
+                if (isShop) {
                     tierName = "VIP Shop";
                     itemIds = SET_SHOP[planet];
-                } else if ("cui".equals(tier) || "shopcui".equals(tier)) {
+                } else if (isCui && !isSKH) {
                     tierName = "Shop Cùi (Cấp 1)";
                     itemIds = SET_CUI[planet];
-                } else if (tier.startsWith("skh")) {
-                    boolean isThan = tier.contains("than") || tier.contains("tl");
-                    itemIds = isThan ? SET_THAN[planet] : SET_CUI[planet];
+                } else if (isSKH) {
+                    // Mặc định SKH là ĐỒ THẦN LINH trừ khi chỉ định rõ 'cui'
+                    boolean useThan = !isCui;
+                    itemIds = useThan ? SET_THAN[planet] : SET_CUI[planet];
 
                     int[][] SKH_IDS = {
                         {129, 127, 128}, // Trái Đất: Songoku (129), Thiên Xin Hăng (127), Kirin (128)
@@ -344,36 +342,37 @@ parameterizedCommands.put("upp", (player, text) -> {
                         {"Kakarot", "Cadic", "Nappa"}
                     };
                     int skhIdx = 0;
-                    if (tier.contains("2") || tier.contains("txh") || tier.contains("octieu") || tier.contains("cadic")) {
+                    if (raw.contains("2") || raw.contains("txh") || raw.contains("octieu") || raw.contains("cadic")) {
                         skhIdx = 1;
-                    } else if (tier.contains("3") || tier.contains("kirin") || tier.contains("pikkoro") || tier.contains("nappa")) {
+                    } else if (raw.contains("3") || raw.contains("kirin") || raw.contains("pikkoro") || raw.contains("nappa")) {
                         skhIdx = 2;
                     }
                     skhId = SKH_IDS[planet][skhIdx];
-                    tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (isThan ? " (Đồ Thần)" : " (Đồ Cùi)");
+                    tierName = "SKH " + SKH_NAMES[planet][skhIdx] + (useThan ? " (Đồ Thần Linh)" : " (Đồ Cùi)");
                 } else {
-                    tierName = "Thần Linh";
+                    tierName = "Thần Linh (Không SKH)";
                     itemIds = SET_THAN[planet];
                 }
 
+                // 3. Nhận diện dòng sao
                 List<int[]> extraStats = new ArrayList<>();
                 String statName = "Sức đánh +21%";
-                if ("hp".equals(stat)) {
-                    extraStats.add(new int[]{77, 35});
-                    statName = "HP +35%";
-                } else if ("tn".equals(stat) || "tiemnang".equals(stat)) {
-                    extraStats.add(new int[]{101, 35});
-                    statName = "Tiềm năng +35%";
-                } else if ("hm".equals(stat) || "hutmau".equals(stat) || "mau".equals(stat)) {
-                    extraStats.add(new int[]{95, 25});
-                    statName = "Hút máu +25%";
-                } else if ("hk".equals(stat) || "hutki".equals(stat) || "ki".equals(stat)) {
-                    extraStats.add(new int[]{96, 10});
-                    statName = "Hút KI +10%";
-                } else if ("hmhk".equals(stat) || "hkhm".equals(stat) || "combo".equals(stat) || "all".equals(stat) || "both".equals(stat)) {
+                if (raw.contains("hmhk") || raw.contains("hkhm") || raw.contains("combo") || (raw.contains("hm") && raw.contains("hk"))) {
                     extraStats.add(new int[]{95, 25});
                     extraStats.add(new int[]{96, 10});
                     statName = "Hút máu 25% + Hút KI 10%";
+                } else if (raw.contains("hm") || raw.contains("hutmau") || raw.contains("mau")) {
+                    extraStats.add(new int[]{95, 25});
+                    statName = "Hút máu +25%";
+                } else if (raw.contains("hk") || raw.contains("hutki") || raw.contains("ki")) {
+                    extraStats.add(new int[]{96, 10});
+                    statName = "Hút KI +10%";
+                } else if (raw.contains("hp")) {
+                    extraStats.add(new int[]{77, 35});
+                    statName = "HP +35%";
+                } else if (raw.contains("tn") || raw.contains("tiemnang")) {
+                    extraStats.add(new int[]{101, 35});
+                    statName = "Tiềm năng +35%";
                 } else {
                     extraStats.add(new int[]{50, 21});
                 }
