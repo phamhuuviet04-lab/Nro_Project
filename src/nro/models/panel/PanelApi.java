@@ -968,17 +968,26 @@ public class PanelApi {
             itemIds = SET_THAN[planet];
         }
 
-        int statOptId = 50;
-        int statParam = 21;
+        List<int[]> extraStats = new ArrayList<>();
         String statName = "Sức đánh +21%";
         if ("hp".equals(stat)) {
-            statOptId = 77;
-            statParam = 35;
+            extraStats.add(new int[]{77, 35});
             statName = "HP +35%";
         } else if ("tn".equals(stat) || "tiemnang".equals(stat)) {
-            statOptId = 101;
-            statParam = 35;
+            extraStats.add(new int[]{101, 35});
             statName = "Tiềm năng, sức mạnh +35%";
+        } else if ("hm".equals(stat) || "hutmau".equals(stat) || "mau".equals(stat)) {
+            extraStats.add(new int[]{95, 25});
+            statName = "Hút máu +25%";
+        } else if ("hk".equals(stat) || "hutki".equals(stat) || "ki".equals(stat)) {
+            extraStats.add(new int[]{96, 10});
+            statName = "Hút KI +10%";
+        } else if ("hmhk".equals(stat) || "hkhm".equals(stat) || "combo".equals(stat) || "all".equals(stat) || "both".equals(stat)) {
+            extraStats.add(new int[]{95, 25});
+            extraStats.add(new int[]{96, 10});
+            statName = "Hút máu 25% + Hút KI 10%";
+        } else {
+            extraStats.add(new int[]{50, 21});
         }
 
         List<Item> itemsToSend = new ArrayList<>();
@@ -1001,7 +1010,9 @@ public class PanelApi {
             // Mở 7 lỗ sao pha lê và ép 7 sao
             it.itemOptions.add(new Item.ItemOption(107, 7));
             it.itemOptions.add(new Item.ItemOption(102, 7));
-            it.itemOptions.add(new Item.ItemOption(statOptId, statParam));
+            for (int[] opt : extraStats) {
+                it.itemOptions.add(new Item.ItemOption(opt[0], opt[1]));
+            }
             itemsToSend.add(it);
         }
 

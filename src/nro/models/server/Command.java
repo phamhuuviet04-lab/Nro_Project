@@ -269,10 +269,16 @@ parameterizedCommands.put("upp", (player, text) -> {
                             + "  • skhcui1 / skhcui2 / skhcui3 (hoặc skh1/2/3)\n"
                             + "- SKH Đồ Thần Linh (Yêu cầu 15-18 tỉ SM):\n"
                             + "  • skhtl1 / skhtl2 / skhtl3 (hoặc skhthan1/2/3)\n"
-                            + "- Dòng sao: sd (Sức đánh), hp (Máu), tn (Tiềm năng)\n\n"
+                            + "- Dòng sao:\n"
+                            + "  • sd : Sức đánh (+21%)\n"
+                            + "  • hp : HP (+35%)\n"
+                            + "  • tn : Tiềm năng (+35%)\n"
+                            + "  • hm : Hút máu (+25%)\n"
+                            + "  • hk : Hút KI (+10%)\n"
+                            + "  • hmhk : Cả 2 dòng (Hút máu 25% + Hút KI 10%)\n\n"
                             + "|4|Ví dụ:\n"
-                            + "• setdo skhcui1 sd : SKH 1 Đồ Cùi SĐ 7★ (sơ sinh mặc ngay)\n"
-                            + "• setdo skhtl1 sd : SKH 1 Đồ Thần SĐ 7★ (chỉ số khủng)\n"
+                            + "• setdo skhcui1 hm : SKH 1 Đồ Cùi Hút Máu 25% 7★\n"
+                            + "• setdo skhtl1 hmhk : SKH 1 Đồ Thần Hút Máu 25% & KI 10% 7★\n"
                             + "• setdo tl sd : Set Thần Linh chuẩn SĐ 7★\n"
                             + "• setdo shop hp : Set VIP Shop HP 7★");
                     return;
@@ -350,17 +356,26 @@ parameterizedCommands.put("upp", (player, text) -> {
                     itemIds = SET_THAN[planet];
                 }
 
-                int statOptId = 50;
-                int statParam = 21;
+                List<int[]> extraStats = new ArrayList<>();
                 String statName = "Sức đánh +21%";
                 if ("hp".equals(stat)) {
-                    statOptId = 77;
-                    statParam = 35;
+                    extraStats.add(new int[]{77, 35});
                     statName = "HP +35%";
                 } else if ("tn".equals(stat) || "tiemnang".equals(stat)) {
-                    statOptId = 101;
-                    statParam = 35;
+                    extraStats.add(new int[]{101, 35});
                     statName = "Tiềm năng +35%";
+                } else if ("hm".equals(stat) || "hutmau".equals(stat) || "mau".equals(stat)) {
+                    extraStats.add(new int[]{95, 25});
+                    statName = "Hút máu +25%";
+                } else if ("hk".equals(stat) || "hutki".equals(stat) || "ki".equals(stat)) {
+                    extraStats.add(new int[]{96, 10});
+                    statName = "Hút KI +10%";
+                } else if ("hmhk".equals(stat) || "hkhm".equals(stat) || "combo".equals(stat) || "all".equals(stat) || "both".equals(stat)) {
+                    extraStats.add(new int[]{95, 25});
+                    extraStats.add(new int[]{96, 10});
+                    statName = "Hút máu 25% + Hút KI 10%";
+                } else {
+                    extraStats.add(new int[]{50, 21});
                 }
 
                 int emptySlots = 0;
@@ -391,7 +406,9 @@ parameterizedCommands.put("upp", (player, text) -> {
                     }
                     it.itemOptions.add(new Item.ItemOption(107, 7));
                     it.itemOptions.add(new Item.ItemOption(102, 7));
-                    it.itemOptions.add(new Item.ItemOption(statOptId, statParam));
+                    for (int[] opt : extraStats) {
+                        it.itemOptions.add(new Item.ItemOption(opt[0], opt[1]));
+                    }
                     InventoryService.gI().addItemBag(player, it);
                 }
 
