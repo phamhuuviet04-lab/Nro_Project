@@ -432,6 +432,46 @@ parameterizedCommands.put("upp", (player, text) -> {
 
     public boolean check(Player player, String text) {
         String cmd = text.startsWith("/") ? text.substring(1).trim() : text;
+        String lowerCmd = cmd.toLowerCase().trim();
+
+        // Chức năng Đổi Set Đồ Nhanh & Lưu Set Đồ (Sư phụ & Đệ tử)
+        if (lowerCmd.equals("set") || lowerCmd.equals("doiset") || lowerCmd.equals("preset") || lowerCmd.equals("boset")) {
+            nro.models.services.GearPresetService.gI().showMenu(player);
+            return true;
+        }
+        if (lowerCmd.equals("s1") || lowerCmd.equals("set1")) {
+            nro.models.services.GearPresetService.gI().equipPreset(player, 1, false);
+            return true;
+        }
+        if (lowerCmd.equals("s2") || lowerCmd.equals("set2")) {
+            nro.models.services.GearPresetService.gI().equipPreset(player, 2, false);
+            return true;
+        }
+        if (lowerCmd.equals("luu1") || lowerCmd.equals("luuset1")) {
+            nro.models.services.GearPresetService.gI().savePreset(player, 1, false);
+            return true;
+        }
+        if (lowerCmd.equals("luu2") || lowerCmd.equals("luuset2")) {
+            nro.models.services.GearPresetService.gI().savePreset(player, 2, false);
+            return true;
+        }
+        if (lowerCmd.equals("des1") || lowerCmd.equals("de1") || lowerCmd.equals("pet1")) {
+            nro.models.services.GearPresetService.gI().equipPreset(player, 1, true);
+            return true;
+        }
+        if (lowerCmd.equals("des2") || lowerCmd.equals("de2") || lowerCmd.equals("pet2")) {
+            nro.models.services.GearPresetService.gI().equipPreset(player, 2, true);
+            return true;
+        }
+        if (lowerCmd.equals("deluu1") || lowerCmd.equals("luude1")) {
+            nro.models.services.GearPresetService.gI().savePreset(player, 1, true);
+            return true;
+        }
+        if (lowerCmd.equals("deluu2") || lowerCmd.equals("luude2")) {
+            nro.models.services.GearPresetService.gI().savePreset(player, 2, true);
+            return true;
+        }
+
         if (cmd.startsWith("setdo")) {
             if (parameterizedCommands.containsKey("setdo")) {
                 parameterizedCommands.get("setdo").accept(player, cmd);

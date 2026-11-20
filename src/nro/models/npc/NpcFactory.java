@@ -348,6 +348,9 @@ public class NpcFactory {
         new Npc(-1, -1, -1, -1, ConstNpc.CON_MEO, 351) {
             @Override
             public void confirmMenu(Player player, int select) {
+                if (nro.models.services.GearPresetService.gI().confirmMenu(player, player.idMark.getIndexMenu(), select)) {
+                    return;
+                }
                 if (nro.models.services_func.AdminTools.gI().confirmMenu(player, player.idMark.getIndexMenu(), select)) {
                     return;
                 }

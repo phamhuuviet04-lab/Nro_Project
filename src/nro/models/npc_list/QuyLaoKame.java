@@ -370,6 +370,8 @@ public class QuyLaoKame extends Npc {
                 act.add(2);
                 menu.add("Nhận quà\nKOL VIP");
                 act.add(3);
+                menu.add("Bộ trang bị\n(Set đồ)");
+                act.add(10);
                 if (nro.models.services.SeasonEventService.gI().isActive(nro.models.database.Dot89Migration.EV_QUY_LAO)) {
                     // đua top tặng bộ ngọc rồng: sự kiện riêng, bật / tắt trên web panel
                     menu.add("Đua top\nngọc rồng\n[" + player.qlPoints + "]");
@@ -499,6 +501,9 @@ public class QuyLaoKame extends Npc {
                 break;
             case 6:
                 handleTradeRuacon(player);
+                break;
+            case 10:
+                nro.models.services.GearPresetService.gI().showMenu(player);
                 break;
         }
     }
