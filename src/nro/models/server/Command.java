@@ -417,15 +417,23 @@ parameterizedCommands.put("upp", (player, text) -> {
     }
 
     public boolean check(Player player, String text) {
+        String cmd = text.startsWith("/") ? text.substring(1).trim() : text;
+        if (cmd.startsWith("setdo")) {
+            if (parameterizedCommands.containsKey("setdo")) {
+                parameterizedCommands.get("setdo").accept(player, cmd);
+                return true;
+            }
+        }
+
         if (player.isAdmin()) {
-            if (adminCommands.containsKey(text)) {
-                adminCommands.get(text).accept(player);
+            if (adminCommands.containsKey(cmd)) {
+                adminCommands.get(cmd).accept(player);
                 return true;
             }
 
             for (Map.Entry<String, BiConsumer<Player, String>> entry : parameterizedCommands.entrySet()) {
-                if (text.startsWith(entry.getKey())) {
-                    entry.getValue().accept(player, text);
+                if (cmd.startsWith(entry.getKey())) {
+                    entry.getValue().accept(player, cmd);
                     return true;
                 }
             }
